@@ -510,7 +510,7 @@ function setup() {
     });
 
     document.querySelector("#alert").addEventListener("click", clearAlert);
-
+    // TODO: maybe fix this at some point, idk what is causing the error here
     document.querySelectorAll(".preset-button.customization-button").forEach(btn => btn.addEventListener("click", changeToPresetCSS));
 
     // activate card color inputs
@@ -752,12 +752,16 @@ function setup() {
     document.getElementById("fontsDropdown").addEventListener("click", (e) => {
         const el = document.getElementById("quick-fonts");
         const el2 = document.getElementsByClassName("custom-font")[0];
+        const arrow = document.getElementById("fontsDropdownArrow");
         if (el.style.display === "none") {
             el.style.display = "flex";
             el2.style.display = "block";
+            arrow.style.transform = "rotate(180deg)";
+
         } else {
             el.style.display = "none";
             el2.style.display = "none";
+            arrow.style.transform = "rotate(0deg)";
         }
     });
 
