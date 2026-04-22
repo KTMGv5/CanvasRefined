@@ -833,6 +833,13 @@ function convertToDueDate(dueAt) {
 	final += " at " + date.toLocaleString("en-US", { hour: "numeric", minute: "numeric", hour12: true });
 	return final;
 }
+function updateIndicator(element) {
+	const rect = element.getBoundingClientRect();
+	const parentRect = element.parentElement.getBoundingClientRect();
+	const indicator = document.getElementById("better-todo-indicator");
+	indicator.style.width = `${element.offsetWidth*2}px`;
+	indicator.style.left = `${element.offsetLeft - (element.offsetWidth * .5)}px`;
+}
 // better todo html
 betterTodoFilter = "tasks";
 let domContainers = {};
@@ -849,27 +856,58 @@ async function createTodoSections(location) {
 		`;
 
 		let filterControl = makeElement("div", location, { "id": "better-todo-filter" });
-		filterControl.innerHTML = `<div id="filterbuttongroup">
-				<button id="announcement" style="color:black !important;">announcement</button>
-				<button id="assignments" style="color:black !important;">assignments</button>
-				<button id="completed" style="color:black !important;">completed</button>
-			</div>`;
+		filterControl.innerHTML = `
+		<div style="display:flex;justify-content:center;margin-top:20px;">
+			<div id="better-todo-filterbuttongroup" style="display:flex;gap:5px;justify-content:space-between;position:relative;padding-bottom:5px;width:60%;">
+				<div id="better-todo-announcement" style="color:black !important;width:25px;cursor:pointer;">
+					<svg fill="#ffffff" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg">
+						<g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier">
+							<path d="M1587.162 31.278c11.52-23.491 37.27-35.689 63.473-29.816 25.525 6.099 43.483 28.8 43.483 55.002V570.46C1822.87 596.662 1920 710.733 1920 847.053c0 136.32-97.13 250.503-225.882 276.705v513.883c0 26.202-17.958 49.016-43.483 55.002a57.279 57.279 0 0 1-12.988 1.468c-21.12 0-40.772-11.745-50.485-31.171C1379.238 1247.203 964.18 1242.347 960 1242.347H564.706v564.706h87.755c-11.859-90.127-17.506-247.003 63.473-350.683 52.405-67.087 129.657-101.082 229.948-101.082v112.941c-64.49 0-110.57 18.861-140.837 57.487-68.781 87.868-45.064 263.83-30.269 324.254 4.18 16.828.34 34.673-10.277 48.34-10.73 13.665-27.219 21.684-44.499 21.684H508.235c-31.171 0-56.47-25.186-56.47-56.47v-621.177h-56.47c-155.747 0-282.354-126.607-282.354-282.353v-56.47h-56.47C25.299 903.523 0 878.336 0 847.052c0-31.172 25.299-56.471 56.47-56.471h56.471v-56.47c0-155.634 126.607-282.354 282.353-282.354h564.593c16.941-.112 420.48-7.002 627.275-420.48Zm-5.986 218.429c-194.71 242.371-452.216 298.164-564.705 311.04v572.724c112.489 12.876 369.995 68.556 564.705 311.04ZM903.53 564.7H395.294c-93.402 0-169.412 76.01-169.412 169.411v225.883c0 93.402 76.01 169.412 169.412 169.412H903.53V564.7Zm790.589 123.444v317.93c65.618-23.379 112.94-85.497 112.94-159.021 0-73.525-47.322-135.53-112.94-158.909Z" fill-rule="evenodd"></path>
+						</g>
+					</svg>
+				</div>
+				<div id="better-todo-assignments" style="color:black !important;width:25px;cursor:pointer;">
+					<svg fill="#ffffff" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff">
+						<g id="SVGRepo_bgCarrier" stroke-width="1"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier">
+							<path d="M1468.214 0v551.145L840.27 1179.089c-31.623 31.623-49.693 74.54-49.693 119.715v395.289h395.288c45.176 0 88.093-18.07 119.716-49.694l162.633-162.633v438.206H0V0h1468.214Zm129.428 581.3c22.137-22.136 57.825-22.136 79.962 0l225.879 225.879c22.023 22.023 22.023 57.712 0 79.848l-677.638 677.637c-10.616 10.503-24.96 16.49-39.98 16.49H903.516v-282.35c0-15.02 5.986-29.364 16.49-39.867Zm-920.005 548.095H338.82v112.94h338.818v-112.94Zm225.88-225.879H338.818v112.94h564.697v-112.94Zm734.106-202.5-89.561 89.56 146.03 146.031 89.562-89.56-146.031-146.031Zm-508.228-362.197H338.82v338.818h790.576V338.82Z" fill-rule="evenodd"></path>
+						</g>
+					</svg>
+				</div>
+				<div id="better-todo-completed" style="color:black !important;width:25px;cursor:pointer;">
+					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+						<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier"> <g id="Interface / Checkbox_Check">
+							<path id="Vector" d="M8 12L11 15L16 9M4 16.8002V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2842 4.21799 18.9079C4 18.4801 4 17.9203 4 16.8002Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+						</g></g>
+					</svg>
+				</div>
+				<div id="better-todo-indicator" style="position:absolute;bottom:4px;left:0;height:3px;background-color:red;border-radius:3px 3px 0 0;transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+			</div>
+		</div>
+		`;
+		setTimeout(() => updateIndicator(document.getElementById("better-todo-assignments")), 10);
 
-		document.getElementById("announcement").addEventListener("click", () => {
+		document.getElementById("better-todo-announcement").addEventListener("click", (e) => {
 			betterTodoFilter = "announcements";
 			moreAnnouncementCount = 0;
+			updateIndicator(e.currentTarget);
 			clearTodoList();
 			createTodoSections(location);
 		});
-		document.getElementById("assignments").addEventListener("click", () => {
+		document.getElementById("better-todo-assignments").addEventListener("click", (e) => {
 			betterTodoFilter = "tasks";
 			moreAssignmentCount = 0;
+			updateIndicator(e.currentTarget);
 			clearTodoList();
 			createTodoSections(location);
 		});
-		document.getElementById("completed").addEventListener("click", () => {
+		document.getElementById("better-todo-completed").addEventListener("click", (e) => {
 			betterTodoFilter = "completed";
 			moreCompletedCount = 0;
+			updateIndicator(e.currentTarget);
 			clearTodoList();
 			createTodoSections(location);
 		});
@@ -877,44 +915,55 @@ async function createTodoSections(location) {
 		let mainSection = makeElement("div", location, {
 			id: "better-todo-main",
 		});
-		mainSection.style = "display:flex;flex-direction:column;gap:10px;";
+		mainSection.style = "display:flex;flex-direction:column;";
 	}
 	let mainSection = location.querySelector("#better-todo-main");
 	assignments.then(data => {
-		console.log(data);
+		// console.log(data);
 		data.forEach(item => {
 			announcements = data.filter(item => item.plannable_type == "announcement");
 			assignmentsDue = data.filter((item) => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && !item.submissions?.submitted && !item.planner_override?.marked_complete && !item.submissions.graded);
 			completed = data.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && (item.submissions.submitted || item.planner_override?.marked_complete || item.submissions.graded));
 		});
 		console.log(assignmentsDue);
+		console.log(announcements);
 
 		domContainers = {};
-		const groupKeys = ["-1", "0", "1", "2", "3", "4", "5", "6", "7", "14", "21", "30", "Later"];
+		const groupKeys = ["-1", "0", "1", "2", "3", "4", "5", "6", "7", "14", "21", "30", "Later", "New", "Seen", "Ungraded", "Graded"];
 		for (const key of groupKeys) {
 			let wrapper = makeElement("div", mainSection, {
 				style: "display:none;margin-top:10px;",
-				className: "better-todo-dueheader"
-			})
-			let label = "Due Later";
-			if (key == "-1") label = "Overdue";
-			else if (key == "0") label = "Due Today";
-			else if (key == "1") label = "Tommorow";
-			else if (key >= 2 && key < 7) label = "Due in " + key + " days";
-			else if (key >= 14 && key < 30) label = "Due in " + key + " months";
-			else if (key == 30) label = "Due in 1 month";
+				className: "better-todo-dueheader",
+			});
+			let label = "";
+			if (key == "Later") label = "Due <strong>Later</strong>";
+			if (key == "-1") label = "<strong>Overdue</strong>";
+			else if (key == "0") label = "Due <strong>Today</strong>";
+			else if (key == "1") label = "Due <strong>Tommorow</strong>";
+			else if (key >= 2 && key < 7) label = "Due <strong>" + key + " days</strong>";
+			else if (key >= 7 && key < 30) label = "Due <strong>" + key/7 + " weeks</strong>";
+			else if (key == "30") label = "Due <strong>1 month</strong>";
+			else label = "<strong>" + key + "</strong>";
 			makeElement("div", wrapper, {
-				textContent: label,
-				style: "display:flex;flex-direction:column;gap:10px;"
+				innerHTML: "<span>" + label + "</span>",
+				style: "display:flex;flex-direction:column;gap:10px;font-size:12px;" // TODO: might not be theme compatible
 			})
 
 			let listContainer = makeElement("div", wrapper, { className: "todo-group-list" });
-			listContainer.style = "display:flex;flex-direction:column;gap:10px;margin-top:10px;";
+			listContainer.style = "display:flex;flex-direction:column;gap:10px;";
 
 			domContainers[key] = { wrapper, listContainer };
 		}
+
+
 		if (betterTodoFilter == "tasks") {
 			populateAssignments();
+		}
+		if (betterTodoFilter == "announcements") {
+			populateAnnouncements();
+		}
+		if (betterTodoFilter == "completed") {
+			populateAssignments(true);
 		}
 	});
 }
@@ -928,11 +977,12 @@ function clearTodoList() {
 	});
 }
 
-function populateAssignments() {
+function populateAssignments(iscompleted = false) {
 	const today = new Date();
 	today.setHours(0,0,0,0);
+	let assignments = iscompleted ? completed : assignmentsDue;
 
-	assignmentsDue.forEach((item) => {
+	assignments.forEach((item) => {
 		let dueGroup = -1;
 		let dueDate = new Date(item.plannable_date);
 		dueDate.setHours(0,0,0,0);
@@ -968,7 +1018,8 @@ function populateAssignments() {
 						<g id="SVGRepo_bgCarrier" stroke-width="1"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
 						<g id="SVGRepo_iconCarrier">
 							<path d="M1468.214 0v551.145L840.27 1179.089c-31.623 31.623-49.693 74.54-49.693 119.715v395.289h395.288c45.176 0 88.093-18.07 119.716-49.694l162.633-162.633v438.206H0V0h1468.214Zm129.428 581.3c22.137-22.136 57.825-22.136 79.962 0l225.879 225.879c22.023 22.023 22.023 57.712 0 79.848l-677.638 677.637c-10.616 10.503-24.96 16.49-39.98 16.49H903.516v-282.35c0-15.02 5.986-29.364 16.49-39.867Zm-920.005 548.095H338.82v112.94h338.818v-112.94Zm225.88-225.879H338.818v112.94h564.697v-112.94Zm734.106-202.5-89.561 89.56 146.03 146.031 89.562-89.56-146.031-146.031Zm-508.228-362.197H338.82v338.818h790.576V338.82Z" fill-rule="evenodd"></path>
-						</g></svg>
+						</g>
+					</svg>
 				</div>
 			</div>
 			<div style="width:calc(100% - 40px);height:80%;display:flex;flex-direction:column;gap:5px;padding-left:2px;box-sizing:border-box;overflow:hidden;">
@@ -987,7 +1038,7 @@ function populateAnnouncements() {
 	const today = new Date();
 	today.setHours(0,0,0,0);
 
-	announcementsDue.forEach((item) => {
+	announcements.forEach((item) => {
 		let dueGroup = -1;
 		let dueDate = new Date(item.plannable_date);
 		dueDate.setHours(0,0,0,0);
@@ -1015,8 +1066,13 @@ function populateAnnouncements() {
 			options.custom_cards_3?.[item.plannable.course_id]?.color ??
 			"#cccccc";
 
+		let filter = "";
+		if (item.plannable.read_state == "read") {
+			filter = "filter: grayscale(40%);"
+		}
+
 		announcement.innerHTML = `
-		<div style="display:flex;align-items:center;gap:5px;width:100%;height:60px;background:var(--bcbackground-1);border-radius:5px;">
+		<div style="display:flex;align-items:center;gap:5px;width:100%;height:60px;background:var(--bcbackground-1);border-radius:5px;${filter}">
 			<div style="width:40px;display:flex;align-items:center;justify-content:center;background-color:${courseColor};height:100%;border-radius:5px 0 0 5px;">
 				<div style="width:20px;height:20px;display:flex;margin-left:5px;">
 					<svg fill="#ffffff" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff">
