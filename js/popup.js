@@ -1,6 +1,6 @@
 const syncedSwitches = ['remind', 'tab_icons', 'hide_feedback', 'dark_mode', 'remlogo', 'full_width', 'auto_dark', 'assignments_due', 'gpa_calc', 'gradient_cards', 'disable_color_overlay', 'dashboard_grades', 'dashboard_notes', 'better_todo', 'condensed_cards'];
 const syncedSubOptions = [
-	"todo_colors",
+	"todo_hide_feedback",
 	"device_dark",
 	"relative_dues",
 	"card_overdues",
@@ -76,7 +76,7 @@ const defaultOptions = {
         "custom_assignments_overflow": ["custom_assignments"],
         "grade_hover": false,
         "hide_completed": false,
-        "num_todo_items": 4,
+        "num_todo_items": 10,
         "custom_font": { "link": "", "family": "" },
         "hover_preview": true,
         "full_width": null,
@@ -103,7 +103,7 @@ const defaultOptions = {
         "dark_mode_fix": [],
         "assignment_states": {},
         "tab_icons": false,
-        "todo_colors": false,
+        "todo_hide_feedback": false,
         "device_dark": false,
         "cumulative_gpa": { "name": "Cumulative GPA", "hidden": false, "weight": "dnc", "credits": 999, "gr": 3.21 },
         "show_updates": false,
@@ -277,35 +277,116 @@ function setupCustomBackgroundLink(initial) {
 function setup() {
 
     const menu = {
-        "switches": syncedSwitches,
-        "checkboxes": ['browser_show_likes', 'gpa_calc_weighted', 'gpa_calc_cumulative', /*'card_method_date',*/ 'show_updates', 'todo_colors', 'device_dark', 'relative_dues', 'card_overdues', 'todo_overdues', 'gpa_calc_prepend', 'auto_dark', 'assignment_date_format', 'todo_hr24', 'grade_hover', 'hide_completed', 'hover_preview', 'scheduledReminder', 'customCardStyles'],
-        "tabs": {
-            "advanced-settings": { "setup": displayAdvancedCards, "tab": ".advanced" },
-            "gpa-bounds-btn": { "setup": displayGPABounds, "tab": ".gpa-bounds-container" },
-            "custom-font-btn": { "setup": displayCustomFont, "tab": ".custom-font-container" },
-            "card-colors-btn": { "setup": null, "tab": ".card-colors-container" },
-            "customize-dark-btn": { "setup": displayDarkModeFixUrls, "tab": ".customize-dark" },
-            "import-export-btn": { "setup": displayThemeList, "tab": ".import-export" },
-            "report-issue-btn": { "setup": displayErrors, "tab": ".report-issue-container" },
-            "updates-btn": { "setup": null, "tab": ".updates-container" }
-        },
-        "special": [
-            { "identifier": "auto_dark_start", "setup": (initial) => setupAutoDarkInput(initial, "auto_dark_start") },
-            { "identifier": "auto_dark_end", "setup": (initial) => setupAutoDarkInput(initial, "auto_dark_end") },
-            { "identifier": "num_assignments", "setup": (initial) => setupAssignmentsSlider(initial) },
-            { "identifier": "num_todo_items", "setup": (initial) => setupTodoSlider(initial) },
-            { "identifier": "card_limit", "setup": (initial) => setupCardLimitSlider(initial) },
-            { "identifier": "card_method_dashboard", "setup": (initial) => setupDashboardMethod(initial) },
-            { "identifier": "custom_styles", "setup": (initial) => setupCustomStyle(initial) },
-            { "identifier": "scheduledReminderTime", "setup": (initial) => setupScheduledReminderInput(initial) },
-            { "identifier": "imageSize", "setup": (initial) => setupImageSizeInput(initial) },
-            { "identifier": "cardRoundness", "setup": (initial) => setupCardRoundnessInput(initial) },
-            { "identifier": "cardSpacing", "setup": (initial) => setupCardSpacingInput(initial) },
-            { "identifier": "cardWidth", "setup": (initial) => setupCardWidthInput(initial) },
-            { "identifier": "cardHeight", "setup": (initial) => setupCardHeightInput(initial) },
-            { "identifier": "customBackgroundLink", "setup": (initial) => setupCustomBackgroundLink(initial)},
-        ],
-    }
+		switches: syncedSwitches,
+		checkboxes: [
+			"browser_show_likes",
+			"gpa_calc_weighted",
+			"gpa_calc_cumulative",
+			/*'card_method_date',*/ "show_updates",
+			"todo_hide_feedback",
+			"device_dark",
+			"relative_dues",
+			"card_overdues",
+			"todo_overdues",
+			"gpa_calc_prepend",
+			"auto_dark",
+			"assignment_date_format",
+			"todo_hr24",
+			"grade_hover",
+			"hide_completed",
+			"hover_preview",
+			"scheduledReminder",
+			"customCardStyles",
+		],
+		tabs: {
+			"advanced-settings": {
+				setup: displayAdvancedCards,
+				tab: ".advanced",
+			},
+			"gpa-bounds-btn": {
+				setup: displayGPABounds,
+				tab: ".gpa-bounds-container",
+			},
+			"custom-font-btn": {
+				setup: displayCustomFont,
+				tab: ".custom-font-container",
+			},
+			"card-colors-btn": { setup: null, tab: ".card-colors-container" },
+			"customize-dark-btn": {
+				setup: displayDarkModeFixUrls,
+				tab: ".customize-dark",
+			},
+			"import-export-btn": {
+				setup: displayThemeList,
+				tab: ".import-export",
+			},
+			"report-issue-btn": {
+				setup: displayErrors,
+				tab: ".report-issue-container",
+			},
+			"updates-btn": { setup: null, tab: ".updates-container" },
+		},
+		special: [
+			{
+				identifier: "auto_dark_start",
+				setup: (initial) =>
+					setupAutoDarkInput(initial, "auto_dark_start"),
+			},
+			{
+				identifier: "auto_dark_end",
+				setup: (initial) =>
+					setupAutoDarkInput(initial, "auto_dark_end"),
+			},
+			{
+				identifier: "num_assignments",
+				setup: (initial) => setupAssignmentsSlider(initial),
+			},
+			{
+				identifier: "num_todo_items",
+				setup: (initial) => setupTodoSlider(initial),
+			},
+			{
+				identifier: "card_limit",
+				setup: (initial) => setupCardLimitSlider(initial),
+			},
+			{
+				identifier: "card_method_dashboard",
+				setup: (initial) => setupDashboardMethod(initial),
+			},
+			{
+				identifier: "custom_styles",
+				setup: (initial) => setupCustomStyle(initial),
+			},
+			{
+				identifier: "scheduledReminderTime",
+				setup: (initial) => setupScheduledReminderInput(initial),
+			},
+			{
+				identifier: "imageSize",
+				setup: (initial) => setupImageSizeInput(initial),
+			},
+			{
+				identifier: "cardRoundness",
+				setup: (initial) => setupCardRoundnessInput(initial),
+			},
+			{
+				identifier: "cardSpacing",
+				setup: (initial) => setupCardSpacingInput(initial),
+			},
+			{
+				identifier: "cardWidth",
+				setup: (initial) => setupCardWidthInput(initial),
+			},
+			{
+				identifier: "cardHeight",
+				setup: (initial) => setupCardHeightInput(initial),
+			},
+			{
+				identifier: "customBackgroundLink",
+				setup: (initial) => setupCustomBackgroundLink(initial),
+			},
+		],
+	};
 
     chrome.storage.sync.get(menu.switches, sync => {
         menu.switches.forEach(option => {
