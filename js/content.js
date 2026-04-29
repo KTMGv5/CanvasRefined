@@ -188,38 +188,38 @@ function showExampleReminder() {
     example.querySelector(".bettercanvas-reminder-due").textContent = "This notification will pop up in other pages to remind you of incomplete assignments that are due in less than 6 hours." /*It will notify again at 2 hours if the 'Remind 2x' option is on."*/;
 }
 
-async function ScheduledReminderCheck() {
-    let date = new Date();
-    let currentHour = date.getHours();
-    let currentMinute = date.getMinutes();
-    if (options.scheduledReminderTime) {
-        let [hour, minute] = options.scheduledReminderTime.split(":");
-        if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
-            const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
-            container.style.display = "flex";
-            container.textContent = "";
-            const storage = await chrome.storage.sync.get("reminders");
-            const now = (new Date()).getTime();
-            storage["reminders"].forEach(reminder => {
-                if (reminder.d >= now) {
-                    createReminder(reminder, container);
-                }
-            });
-        }
-    }
-}
+// async function ScheduledReminderCheck() {
+//     let date = new Date();
+//     let currentHour = date.getHours();
+//     let currentMinute = date.getMinutes();
+//     if (options.scheduledReminderTime) {
+//         let [hour, minute] = options.scheduledReminderTime.split(":");
+//         if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
+//             const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+//             container.style.display = "flex";
+//             container.textContent = "";
+//             const storage = await chrome.storage.sync.get("reminders");
+//             const now = (new Date()).getTime();
+//             storage["reminders"].forEach(reminder => {
+//                 if (reminder.d >= now) {
+//                     createReminder(reminder, container);
+//                 }
+//             });
+//         }
+//     }
+// }
 
-function toggleScheduledReminders() {
-    clearInterval(reminderCheck);
-    if (options.scheduledReminder !== true) return;
-    ScheduledReminderCheck();
-    reminderCheck = setInterval(ScheduledReminderCheck, 60000);
-}
+// function toggleScheduledReminders() {
+//     clearInterval(reminderCheck);
+//     if (options.scheduledReminder !== true) return;
+//     ScheduledReminderCheck();
+//     reminderCheck = setInterval(ScheduledReminderCheck, 60000);
+// }
 
 isDomainCanvasPage();
 
 function isDomainCanvasPage() {
-    chrome.storage.sync.get(['custom_domain', 'dark_mode', 'dark_preset', 'device_dark', 'remind', 'scheduledReminder', 'scheduledReminderTime'], result => {
+    chrome.storage.sync.get(['custom_domain', 'dark_mode', 'dark_preset', 'device_dark', 'remind'/*, 'scheduledReminder', 'scheduledReminderTime'*/], result => {
         options = result;
         if (result.custom_domain.length && result.custom_domain[0] !== "") {
             for (let i = 0; i < result.custom_domain.length; i++) {
@@ -232,14 +232,14 @@ function isDomainCanvasPage() {
             // if the code reaches this point, its not a canvas page so run the reminders
             setTimeout(reminderWatch, 2000);
             setInterval(reminderWatch, 60000);
-            toggleScheduledReminders();
+            // toggleScheduledReminders();
             // turn the reminders on/off if the option is changed
             chrome.storage.onChanged.addListener((changes) => {
                 Object.keys(changes).forEach(key => {
                     if (key === "remind") reminderWatch();
                     if (key === "scheduledReminder" || key === "scheduledReminderTime") {
                         options[key] = changes[key].newValue;
-                        toggleScheduledReminders();
+                        // toggleScheduledReminders();
                     }
                 })
             })
@@ -255,7 +255,7 @@ function startExtension() {
     chrome.storage.sync.get(null, result => {
         options = { ...options, ...result };
         toggleAutoDarkMode();
-        toggleScheduledReminders();
+        // toggleScheduledReminders();
         getApiData();
         checkDashboardReady();
         loadCustomFont();
@@ -263,7 +263,7 @@ function startExtension() {
         changeFavicon();
         updateReminders();
         applyCustomBackground();
-        
+
         //getClassAverages();
         
         setTimeout(() => document.getElementById("footer").remove(), 800);
@@ -335,10 +335,12 @@ function applyOptionsChanges(changes) {
 				customizeCards();
 				break;
 			case "todo_hr24":
+			case "todo_separate_scrollbar":
 			case "num_todo_items":
 			case "hover_preview":
-			case "todo_overdues":
+			// case "todo_overdues":
 			case "todo_hide_feedback":
+			case "todo_full_height":
 			case "custom_cards_3":
 				moreAnnouncementCount = 0;
 				moreAssignmentCount = 0;
@@ -367,16 +369,16 @@ function applyOptionsChanges(changes) {
 			case "custom_styles":
 				applyAestheticChanges();
 				break;
-			case "show_updates":
-				showUpdateMsg();
-				break;
+			// case "show_updates":
+			// 	showUpdateMsg();
+			// 	break;
 			case "remind":
 				showExampleReminder();
 				break;
-			case "scheduledReminder":
-			case "scheduledReminderTime":
-				toggleScheduledReminders();
-				break;
+			// case "scheduledReminder":
+			// case "scheduledReminderTime":
+			// 	toggleScheduledReminders();
+				// break;
 			case "imageSize":
 			case "cardRoundness":
 			case "cardSpacing":
@@ -409,7 +411,7 @@ function applyCustomBackground() {
             backdrop-filter: blur(10px) !important;
             border-radius: 5px;
         }
-        #right-side-wrapper { 
+        #right-side-wrapper {
             background: color-mix(in srgb, var(--bcbackground-0) 45%, transparent) !important;
             backdrop-filter: blur(10px) !important;
             border-radius: 5px;
@@ -836,7 +838,7 @@ function convertToDueDate(dueAt) {
 	final = "due ";
 	let date = new Date(dueAt);
 	final += date.toLocaleString("en-US", { month: "short", day: "numeric" });
-	final += " at " + date.toLocaleString("en-US", { hour: "numeric", minute: "numeric", hour12: true });
+	final += " at " + date.toLocaleString("en-US", { hour: "numeric", minute: "numeric", hour12: !options.todo_hr24 });
 	return final;
 }
 function updateIndicator(element) {
@@ -1001,6 +1003,34 @@ async function createTodoSections(location) {
 		if (betterTodoFilter == "completed") {
 			populateAssignments(true);
 		}
+
+		const feedbackElement = document.querySelector(".recent_feedback");
+		if (feedbackElement) {
+			if (options.todo_hide_feedback == true) {
+				feedbackElement.style.display = "none";
+			} else {
+				feedbackElement.style.display = "block";
+			}
+		}
+
+		const sidebar = document.getElementById("right-side-wrapper");
+		if (options.todo_full_height) {
+			sidebar.style.minHeight = "100vh";
+		} else {
+			sidebar.style.minHeight = "";
+		}
+		if (options.todo_separate_scrollbar) {
+			sidebar.style.position = "sticky";
+			sidebar.style.top = "0";
+			sidebar.style.height = "100vh";
+			sidebar.style.overflowY = "auto";
+		} else {
+			sidebar.style.position = "";
+			sidebar.style.top = "";
+			sidebar.style.height = "";
+			sidebar.style.overflowY = "";
+			// maybe invisible scrollbar?
+		}
 	});
 }
 
@@ -1132,9 +1162,6 @@ function populateAssignments(iscompleted = false) {
 			}
 			isExpanded = !isExpanded;
 		})
-	}
-	if (options.todo_hide_feedback) {
-		document.querySelector(".recent_feedback").remove();
 	}
 }
 
@@ -1734,27 +1761,27 @@ function autoDarkModeCheck() {
     }
 }
 
-async function ScheduledReminderCheck() {
-	let date = new Date();
-	let currentHour = date.getHours();
-	let currentMinute = date.getMinutes();
-	if (options.scheduledReminderTime) {
-		let [hour, minute] = options.scheduledReminderTime.split(":");
-		if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
-			const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
-			container.style.display = "flex";
-			container.textContent = "";
-			const storage = await chrome.storage.sync.get("reminders");
-			const now = (new Date()).getTime();
-			storage["reminders"].forEach(reminder => {
-				if (reminder.d >= now) {
-					createReminder(reminder, container);
-				}
-			});
-		}
-	}
+// async function ScheduledReminderCheck() {
+// 	let date = new Date();
+// 	let currentHour = date.getHours();
+// 	let currentMinute = date.getMinutes();
+// 	if (options.scheduledReminderTime) {
+// 		let [hour, minute] = options.scheduledReminderTime.split(":");
+// 		if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
+// 			const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+// 			container.style.display = "flex";
+// 			container.textContent = "";
+// 			const storage = await chrome.storage.sync.get("reminders");
+// 			const now = (new Date()).getTime();
+// 			storage["reminders"].forEach(reminder => {
+// 				if (reminder.d >= now) {
+// 					createReminder(reminder, container);
+// 				}
+// 			});
+// 		}
+// 	}
 
-}
+// }
 
 function toggleAutoDarkMode() {
     clearInterval(timeCheck);
@@ -1763,12 +1790,12 @@ function toggleAutoDarkMode() {
     timeCheck = setInterval(autoDarkModeCheck, 60000);
 }
 
-function toggleScheduledReminders() {
-	clearInterval(reminderCheck);
-	if (options.scheduled_reminders === false) return; //TODO: add it to the options thing
-	ScheduledReminderCheck();
-	reminderCheck = setInterval(ScheduledReminderCheck, 60000);
-}
+// function toggleScheduledReminders() {
+// 	clearInterval(reminderCheck);
+// 	if (options.scheduled_reminders === false) return; //TODO: add it to the options thing
+// 	ScheduledReminderCheck();
+// 	reminderCheck = setInterval(ScheduledReminderCheck, 60000);
+// }
 
 let iframeObserver;
 function runiframeChecker() {
@@ -2496,7 +2523,7 @@ function showUpdateMsg() {
         return;
     }
 
-    // first creation 
+    // first creation
     div = makeElement("div", el, { "id": "bettercanvas-update-msg" });
     makeElement("p", div, { "textContent": options.update_msg });
     const close = makeElement("button", div, { "id": "bettercanvas-update-close", "textContent": "Close" });

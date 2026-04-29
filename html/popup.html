@@ -169,7 +169,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="option-container">
+                <div class="option-container" style="display:none">
+					<!-- TODO: scrapped maybe forever -->
                     <div class="option" id="remind">
                         <input type="radio" id="off" name="remind">
                         <input type="radio" id="on" name="remind">
@@ -206,27 +207,26 @@
                         <span class="option-name" data-i18n="better_todo">Better Todo List</span>
                     </div>
                     <div class="sub-options">
-                        <div class="sub-option">
+                        <div class="sub-option" style="display:none;">
                             <input type="checkbox" id="hover_preview" name="hover_preview">
                             <label for="hover_preview" class="sub-text" data-i18n="hover_preview">Hover to preview
-                                details</label> <!-- TODO -->
+                                details</label> <!-- TODO: Later -->
                         </div>
                         <div class="sub-option">
-                            <input type="checkbox" id="hide_completed" name="hide_completed">
-                            <label for="hide_completed" class="sub-text" data-i18n="hide_completed">Hide
-                                completed</label> <!-- TO REMOVE replace with "own scrollbar" -->
+                            <input type="checkbox" id="todo_separate_scrollbar" name="todo_separate_scrollbar">
+                            <label for="todo_separate_scrollbar" class="sub-text" data-i18n="todo_separate_scrollbar">Separate Scrollbar</label>
                         </div>
                         <div class="sub-option">
                             <input type="checkbox" id="todo_hr24" name="todo_hr24">
-                            <label for="todo_hr24" class="sub-text" data-i18n="24hrformat">Use 24hr format</label> <!-- TODO -->
+                            <label for="todo_hr24" class="sub-text" data-i18n="24hrformat">Use 24hr format</label>
                         </div>
                         <div class="sub-option">
-                            <input type="checkbox" id="todo_overdues" name="todo_overdues">
-                            <label for="todo_overdues" class="sub-text" data-i18n="show_past_due">Show past due</label> <!-- TO REMOVE and replace with full height -->
+                            <input type="checkbox" id="todo_full_height" name="todo_full_height">
+                            <label for="todo_full_height" class="sub-text" data-i18n="todo_full_height">Force Full Height</label> <!-- TO REMOVE and replace with full height -->
                         </div>
                         <div class="sub-option">
                             <input type="checkbox" id="todo_hide_feedback" name="todo_hide_feedback">
-                            <label for="todo_hide_feedback" class="sub-text" data-i18n="todo_hide_feedback">Hide Recent Feedback</label> <!-- TO REMOVE and replace with recent feedback -->
+                            <label for="todo_hide_feedback" class="sub-text" data-i18n="todo_hide_feedback">Hide Recent Feedback</label>
                         </div>
                         <div style="margin-top: 5px">
                             <span class="sub-text" data-i18n="max_items">Max items to show: </span><span

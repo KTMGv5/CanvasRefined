@@ -1,10 +1,11 @@
 const syncedSwitches = ['remind', 'tab_icons', 'hide_feedback', 'dark_mode', 'remlogo', 'full_width', 'auto_dark', 'assignments_due', 'gpa_calc', 'gradient_cards', 'disable_color_overlay', 'dashboard_grades', 'dashboard_notes', 'better_todo', 'condensed_cards'];
 const syncedSubOptions = [
 	"todo_hide_feedback",
+	"todo_full_height",
 	"device_dark",
 	"relative_dues",
 	"card_overdues",
-	"todo_overdues",
+	// "todo_overdues",
 	"gpa_calc_prepend",
 	"auto_dark",
 	"auto_dark_start",
@@ -12,12 +13,13 @@ const syncedSubOptions = [
 	"num_assignments",
 	"assignment_date_format",
 	"todo_hr24",
+	"todo_separate_scrollbar",
 	"grade_hover",
-	"hide_completed",
+	// "hide_completed",
 	"num_todo_items",
 	"hover_preview",
-	"scheduledReminder",
-	"scheduledReminderTime",
+	// "scheduledReminder",
+	// "scheduledReminderTime",
 	"customCardStyles",
 	"imageSize",
 	"cardRoundness",
@@ -68,6 +70,7 @@ const defaultOptions = {
         "dashboard_notes_text": "",
         "better_todo": false,
         "todo_hr24": false,
+		"todo_separate_scrollbar": false,
         "condensed_cards": false,
         "custom_cards": {},
         "custom_cards_2": {},
@@ -75,7 +78,7 @@ const defaultOptions = {
         "custom_assignments": [],
         "custom_assignments_overflow": ["custom_assignments"],
         "grade_hover": false,
-        "hide_completed": false,
+        // "hide_completed": false,
         "num_todo_items": 10,
         "custom_font": { "link": "", "family": "" },
         "hover_preview": true,
@@ -96,7 +99,7 @@ const defaultOptions = {
             "D-": { "cutoff": 60, "gpa": .7 },
             "F": { "cutoff": 0, "gpa": 0 }
         },
-        "todo_overdues": false,
+        // "todo_overdues": false,
         "card_overdues": false,
         "relative_dues": false,
         "hide_feedback": false,
@@ -104,14 +107,15 @@ const defaultOptions = {
         "assignment_states": {},
         "tab_icons": false,
         "todo_hide_feedback": false,
+		"todo_full_height": false,
         "device_dark": false,
         "cumulative_gpa": { "name": "Cumulative GPA", "hidden": false, "weight": "dnc", "credits": 999, "gr": 3.21 },
-        "show_updates": false,
+        // "show_updates": false,
         "card_method_date": false,
         "card_method_dashboard": true,
         "card_limit": 25,
-        "scheduledReminder": false,
-        "scheduledReminderTime": { "hour": "09", "minute": "00" },
+        // "scheduledReminder": false,
+        // "scheduledReminderTime": { "hour": "09", "minute": "00" },
         "imageSize": 100,
         "cardRoundness": 5,
         "cardSpacing": 0,
@@ -196,14 +200,14 @@ function setupAutoDarkInput(initial, time) {
     });
 }
 
-function setupScheduledReminderInput(initial) {
-    let el = document.querySelector('#scheduledReminderTime');
-    el.value = initial.hour + ":" + initial.minute;
-    el.addEventListener('change', function () {
-        let timeinput = { "hour": this.value.split(':')[0], "minute": this.value.split(':')[1] };
-        chrome.storage.sync.set({ scheduledReminderTime: timeinput });
-    });
-}
+// function setupScheduledReminderInput(initial) {
+//     let el = document.querySelector('#scheduledReminderTime');
+//     el.value = initial.hour + ":" + initial.minute;
+//     el.addEventListener('change', function () {
+//         let timeinput = { "hour": this.value.split(':')[0], "minute": this.value.split(':')[1] };
+//         chrome.storage.sync.set({ scheduledReminderTime: timeinput });
+//     });
+// }
 
 function setupCardLimitSlider(initial) {
     let el = document.querySelector("#card_limit");
@@ -282,20 +286,22 @@ function setup() {
 			"browser_show_likes",
 			"gpa_calc_weighted",
 			"gpa_calc_cumulative",
-			/*'card_method_date',*/ "show_updates",
+			// /*'card_method_date',*/ "show_updates",
 			"todo_hide_feedback",
+			"todo_full_height",
 			"device_dark",
 			"relative_dues",
 			"card_overdues",
-			"todo_overdues",
+			// "todo_overdues",
 			"gpa_calc_prepend",
 			"auto_dark",
 			"assignment_date_format",
 			"todo_hr24",
+			"todo_separate_scrollbar",
 			"grade_hover",
-			"hide_completed",
+			// "hide_completed",
 			"hover_preview",
-			"scheduledReminder",
+			// "scheduledReminder",
 			"customCardStyles",
 		],
 		tabs: {
@@ -357,10 +363,10 @@ function setup() {
 				identifier: "custom_styles",
 				setup: (initial) => setupCustomStyle(initial),
 			},
-			{
-				identifier: "scheduledReminderTime",
-				setup: (initial) => setupScheduledReminderInput(initial),
-			},
+			// {
+			// 	identifier: "scheduledReminderTime",
+			// 	setup: (initial) => setupScheduledReminderInput(initial),
+			// },
 			{
 				identifier: "imageSize",
 				setup: (initial) => setupImageSizeInput(initial),
@@ -410,7 +416,9 @@ function setup() {
 
     chrome.storage.sync.get(menu.checkboxes, sync => {
         menu.checkboxes.forEach(option => {
-            document.querySelector("#" + option).addEventListener("change", function (e) {
+			const checkbox = document.querySelector("#" + option);
+			if (!checkbox) {console.log(option); return;}
+            checkbox.addEventListener("change", function (e) {
                 let status = this.checked;
                 chrome.storage.sync.set(JSON.parse(`{"${option}": ${status}}`));
             });
