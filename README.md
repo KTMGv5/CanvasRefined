@@ -70,6 +70,10 @@ Actually Better Canvas adds more with more to come!
 - better what if grade
 - global search
 - fix darkmode fixer
+- make sidebar and todo list work on all pages that need them
+- grade history with graph
+- preview font
+- button to remove all card images
 
 ## Extra features that might be added:
 - card grade position, card outline

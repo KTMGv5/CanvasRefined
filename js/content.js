@@ -390,6 +390,21 @@ function applyOptionsChanges(changes) {
 			case "customBackgroundLink":
 				applyCustomBackground();
 				break;
+			case "better_todo":
+				if (options.better_todo) {
+					setupBetterTodo();
+				} else {
+					window.location.reload();
+				}
+			case "better_sidebar":
+				if (options.better_sidebar) setupBetterSidebar();
+				// else window.location.reload();
+				else {
+					document.getElementById("header").style.display = "block";
+					document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "54px");
+					document.getElementById("better-sidebar-container").remove();
+				}
+				break;
 		}
     });
 }
@@ -442,30 +457,50 @@ function resetTimer() {
 }
 
 function checkDashboardReady() {
-    if (current_page !== "/" && current_page !== "") return;
-    const callback = (mutationList) => {
-        for (const mutation of mutationList) {
-            if (mutation.type === "childList") {
-                if (mutation.target == document.querySelector("#DashboardCard_Container")) {
-                    let cards = document.querySelectorAll('.ic-DashboardCard');
-                    changeGradientCards();
-                    setupCardAssignments();
-                    loadCardAssignments();
-                    customizeCards(cards);
-                    insertGrades();
-                    loadDashboardNotes();
-                    setupGPACalc();
-                    showUpdateMsg();
-                } else if (mutation.target == document.querySelector('#right-side')) {
-                    if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
-                        setupBetterTodo();
-                        setupBetterSidebar();
-                        // loadBetterTodo();
-                    }
-                }
-            }
-        }
-    };
+	let callback;
+    if (current_page == "/" || current_page == "") {
+		console.log("I am dashboard");
+		callback = (mutationList) => {
+			for (const mutation of mutationList) {
+				if (mutation.type === "childList") {
+					if (mutation.target == document.querySelector("#DashboardCard_Container")) {
+						let cards = document.querySelectorAll('.ic-DashboardCard');
+						changeGradientCards();
+						setupCardAssignments();
+						loadCardAssignments();
+						customizeCards(cards);
+						insertGrades();
+						loadDashboardNotes();
+						setupGPACalc();
+						showUpdateMsg();
+					} else if (mutation.target == document.querySelector('#right-side')) {
+						if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
+							setupBetterTodo();
+							setupBetterSidebar();
+							// loadBetterTodo();
+						}
+					}
+				}
+			}
+		};
+	} else return;
+	// else { // all outside dashboard
+	// 	console.log("I am outside", current_page);
+	// 	if (current_page.match(/^\/courses\/(\d+)\/?$/)) {
+
+	// 	}
+	// 	callback = (mutationList) => {
+	// 		for (const mutation of mutationList) {
+	// 			if (mutation.target == document.querySelector('#right-side')) {
+	// 				if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
+	// 					// setupBetterTodo(); figure this out per class
+	// 					setupBetterSidebar();
+	// 					// loadBetterTodo();
+	// 				}
+	// 			}
+	// 		}
+	// 	};
+	// }
 
     const observer = new MutationObserver(callback);
     observer.observe(document.querySelector('html'), { childList: true, subtree: true });
@@ -1294,35 +1329,58 @@ function setupBetterSidebar() {
     let wrapper = document.querySelector("#wrapper");
     if (!wrapper) return;
     try {
-        document.querySelector("#header")?.remove();
+        // document.querySelector("#header")?.remove();
+		document.getElementById("header").style.display = "none";
         document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
         // rebuild sidebar
         const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
         mainWrapper.style.display = "flex";
 
-        let sidebarList = makeElement("div", mainWrapper, { id: "better-sidebar-container", 
-            style: "display:flex;flex-direction:column;width:250px;justify-content:center;gap:20px;padding:20px;box-sizing:border-box;position:relative;background-color:red;"
+        let sidebarList = makeElement("div", mainWrapper, { id: "better-sidebar-container",
+            style: "display:flex;flex-direction:column;width:150px;justify-content:center;align-items:center;box-sizing:border-box;position:relative;background-color:red;height:100vh;position:sticky;top:0;left:0;"
         }, true);
-        sidebarList.innerHTML = `
-            
-        `;
+		let sidebarContent = makeElement("div", sidebarList, {
+			style: "display:flex;flex-direction:column;gap:20px;width:100%;flex:1;justify-content:flex-start;align-items:center;background-color:blue;margin:5px;"
+		});
+		// sidebar contents
+		createSidebarButton("Dashboard", domain+"/", sidebarContent);
+		createSidebarButton("Courses", domain+"/courses", sidebarContent);
+		createSidebarButton("Groups", domain+"/groups", sidebarContent);
+		createSidebarButton("Calendar", domain+"/calendar", sidebarContent);
+		createSidebarButton("Inbox", domain+"/conversations", sidebarContent);
+		createSidebarButton("Studio", domain+"accounts/1/external_tools/69?launch_type=global_navigation", sidebarContent);
+
+
         let expander = makeElement("div", sidebarList, {
-            style: "display:flex;flex-direction:column;gap:10px;position:absolute:bottom:10px;"
+            style: "display:flex;flex-direction:column;gap:0px;margin-top:auto;"
         });
         expander.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:50px;height:50px;transition:all .3s ease;cursor:pointer;">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:40px;height:40px;transition:all .3s ease;cursor:pointer;">
                 <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
                 <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                <g id="SVGRepo_iconCarrier"> 
+                <g id="SVGRepo_iconCarrier">
                     <path d="M20 4V20M4 12H16M16 12L12 8M16 12L12 16" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 </g>
             </svg>
         `
-
     } catch (e) {
         logError(e);
     }
-    
+}
+function createSidebarButton(text, url, parent) {
+	let button = makeElement("a", parent, {
+		style: "width:80%;height:30px;cursor:pointer;text-align:center;text-decoration:none;display:flex;justify-content:center;align-items:center;color:var(--bctext-0);font-weight:bold;",
+		className: "bettercanvas-custom-btn",
+		textContent: text,
+		href: url,
+	});
+	// button.addEventListener("click", (event) => {
+	// 	if (event.ctrlKey || event.metaKey) {
+	// 		window.open(domain+url, '_blank');
+	// 	} else {
+	// 		window.location.href = domain+url;
+	// 	}
+	// });
 }
 
 let delay;
