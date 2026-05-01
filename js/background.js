@@ -39,6 +39,8 @@ chrome.runtime.onInstalled.addListener(function () {
             "dashboard_notes_text": "",
             "better_todo": false,
             "todo_hr24": false,
+			"todo_separate_scrollbar": false,
+            "better_sidebar": true,
             "condensed_cards": false,
             "custom_cards": {},
             "custom_cards_2": {},
@@ -46,8 +48,8 @@ chrome.runtime.onInstalled.addListener(function () {
             "custom_assignments": [],
             "custom_assignments_overflow": ["custom_assignments"],
             "grade_hover": false,
-            "hide_completed": false,
-            "num_todo_items": 4,
+            // "hide_completed": false,
+            "num_todo_items": 10,
             "custom_font": { "link": "", "family": "" },
             "hover_preview": true,
             "full_width": null,
@@ -67,17 +69,18 @@ chrome.runtime.onInstalled.addListener(function () {
                 "D-": { "cutoff": 60, "gpa": .7 },
                 "F": { "cutoff": 0, "gpa": 0 }
             },
-            "todo_overdues": false,
+            // "todo_overdues": false,
             "card_overdues": false,
             "relative_dues": false,
             "hide_feedback": false,
             "dark_mode_fix": [],
             "assignment_states": {},
             "tab_icons": false,
-            "todo_colors": false,
+            "todo_hide_feedback": false,
+			"todo_full_height": false,
             "device_dark": false,
             "cumulative_gpa": { "name": "Cumulative GPA", "hidden": false, "weight": "dnc", "credits": 999, "gr": 3.21 },
-            "show_updates": false,
+            // "show_updates": false,
             "card_method_date": false,
             "card_method_dashboard": true,
             "card_limit": 25,
@@ -85,8 +88,8 @@ chrome.runtime.onInstalled.addListener(function () {
             "reminders": [],
             "reminder_count": 1,
             "multi_remind": false,
-            "scheduledReminder": false,
-            "scheduledReminderTime": { "hour": "09", "minute": "00" },
+            // "scheduledReminder": false,
+            // "scheduledReminderTime": { "hour": "09", "minute": "00" },
             "id": "",
             "new_browser": null,
             "gpa_calc_cumulative": false,
@@ -103,7 +106,7 @@ chrome.runtime.onInstalled.addListener(function () {
         }
     };
 
-    const updateMsg = "Better Canvas was just updated!\nThis version added new themes, cumulative GPA into the GPA calculator, and a new sorting function for themes.";
+    const updateMsg = "Betterer Canvas was just updated!\nThis version added new themes, cumulative GPA into the GPA calculator, and a new sorting function for themes.";
 
     chrome.storage.local.get(null, local => {
         chrome.storage.sync.get(null, async sync => {

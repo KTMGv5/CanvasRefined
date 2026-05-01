@@ -1,14 +1,10 @@
 ![Better Canvas](/icon/NEWtitle.png)
 
-# Betterer Canvas
-
-name idea: even better canvas or Actually Better Canvas (ABC)
+# Actually Better Canvas
 
 I don't like the direction bettercanvas (bettercampus) is heading so I forked it
 
-They tried to change license but forgot to wipe the codebase for thier MIT licensed version, so this is a fully legal fork.
-
-Enhancements to Canvas AND bettercanvas like dark mode, better todo list, GPA calculator, and more!
+They tried to change license but forgot to rebase so this is based on the MIT licensed version and fully legal 🙃
 
 <!-- ### Supported on -->
 
@@ -19,8 +15,6 @@ Enhancements to Canvas AND bettercanvas like dark mode, better todo list, GPA ca
 ## Inquiries
 
 To contact me, please email sandlerguy5@gmail.com, or you can open an issue within the "Issues" tab on GitHub.
-
-If you are ksucpea and want to take this down, you can't, and I have [proof of legality](#proof-of-legality)
 
 ## Table of Contents
 
@@ -42,7 +36,6 @@ Better Canvas introduces improvements to the Canvas user interface:
 - Themes created by users (broken due to fork)
 - Assignments due list
 - Dashboard notes
-- Better todo list
 - Custom fonts
 - Condensed cards
 - Dashboard grades
@@ -55,17 +48,21 @@ Better Canvas introduces improvements to the Canvas user interface:
 - Preview assignments and announcements from the dashboard 
 
 ## Newly added features
+
+Actually Better Canvas adds more with more to come!
+
 - GPA presets
-- Scheduled Reminder Popups (broken) 
-- Searching themes (the original didn't actually impliment that)
+- backend stuff:
+	- Searching themes (the original didn't actually impliment that)
+	- made the dark mode into a css file instead of a reallllllly long string
 - Card Styles (image size, card roundness, card spacing, width, height, theme compatible)
 - Custom Background (by URL, theme compatible)
+- Popup UI revamp
+- NEW Better todo list
+- better sidebar (beta)
 
 ## Planned Features (by priority)
-- popup UI revamp
 - widgets (music, timer)
-- update better todo list (with hover assignment preview)
-- better sidebar
 - better notes
 - auto rotate theme + theme history + fix theme submissions
 - mail assistent + ui revamp
@@ -73,6 +70,10 @@ Better Canvas introduces improvements to the Canvas user interface:
 - better what if grade
 - global search
 - fix darkmode fixer
+- make sidebar and todo list work on all pages that need them
+- grade history with graph
+- preview font
+- button to remove all card images
 
 ## Extra features that might be added:
 - card grade position, card outline
@@ -86,6 +87,7 @@ Better Canvas introduces improvements to the Canvas user interface:
 - transcribe lecture (if there is demand for it)
 - flashcards
 - goals
+- Scheduled Reminder Popups
 
 ## Community suggestions (maybe will be done at some point)
 - when opening assignments it will show you "if you get a 0 on this your grade will be _"
@@ -112,9 +114,9 @@ To install, run, and build with this repository locally,
 
 To use Better Canvas, select your browser below to install the extension from a store.
 
-[Chrome](https://chrome.google.com/webstore/detail/better-canvas/cndibmoanboadcifjkjbdpjgfedanolh)
+<!-- [Chrome](https://chrome.google.com/webstore/detail/better-canvas/cndibmoanboadcifjkjbdpjgfedanolh) -->
 
-[Firefox](https://addons.mozilla.org/addon/better-canvas/)
+<!-- [Firefox](https://addons.mozilla.org/addon/better-canvas/) -->
 
 ### How to use
 
@@ -122,29 +124,6 @@ To use Better Canvas, select your browser below to install the extension from a 
 - To edit the available options, click on the "Extensions" button in the upper right corner of the viewport.
 - When the menu opens, click on the Better Canvas extension.
   - A menu will appear with configuration options for your Canvas homepage.
-
-## Version Notes
-
-#### Update 5.10
-
-- Fixed dark mode bug in discussion text boxes
-- Added new themes + fonts
-- Card colors now change instantly
-- Dark mode fixer feature
-- Card customization now shows preview of image
-- New sidebar options
-- Dark mode buttons preview their appearance
-- "Remove sidebar logo" feature
-- "Hide recent feedback" feature
-- Menu redesign
-- Fixed card assignment bug
-- Card assignment efficiency improvements
-- Dark mode rework
-- Dark mode now syncs
-- Option to use device dark mode settings
-- Improved todo list
-- "Color coded tab icons" feature
-- "Use card colors" option for todo list
 
 ## Color Reference
 
@@ -228,96 +207,6 @@ To add a new feature, please follow these guidelines.
   - If the function only adds css, it should be added to `applyAestheticChanges()`, and in this case should not be a separate function, instead add the css to the existing styles found in this function.
   - Anything else should be put under `startExtension()` and should be placed no higher than the `checkDashboardReady` function found here.
 
-### Add a new theme
-
-To add a new theme, please follow these guidelines.
-
-You can export a theme using the export tool in the menu and sending an email to me, or you can merge it here after doing the following:
-
-#### Exporting
-
-- Go to the Themes tab and export dark mode, card images, card colors, and custom font. - The only on/off toggles that need be included are `disable_color_overlay` and `gradient_cards`.
-  Any other toggles aren't necessary, so you should manually add these keys and the appropriate values in with the export code.
-- Pick a unique id for the theme, doesn't matter how long this is.
-
-#### Changes to js/popup.js
-
-- Add the export code under `getTheme()`.
-  - Make sure it follows this format: `"theme-<id>: { "exports": {"..."}, "preview": "..." }`
-- For the preivew, try to pick the smallest image size from the card images (under ~50kb is perfect), or you can find a smaller display image that isn't included in the card images.
-
-#### Changes to html/popup.html
-
-- Add the following under all the other theme buttons:
-
-```
-<button id="theme-<id>" class="theme-button customization-button"><theme name> by <you></button>
-```
-
-- The theme name should be one/two words so it doesn't take up too much space.
-
-## File structure
-
-```
-.
-├── README.md
-├── \_locales
-│ ├── en
-│ │ └── messages.json
-│ └── es
-│ └── messages.json
-├── css
-│ ├── content.css
-│ ├── options.css
-│ └── popup.css
-├── html
-│ ├── options.html
-│ └── popup.html
-├── icon
-│ ├── icon-128.png
-│ ├── icon-16.png
-│ ├── icon-19.png
-│ ├── icon-32.png
-│ ├── icon-38.png
-│ ├── icon-48.png
-│ ├── icon-wide.png
-│ ├── iconwpadding.png
-│ └── oldicon-128.png
-├── js
-│ ├── background.js
-│ ├── content.js
-│ └── popup.js
-└── manifest.json
-```
-
-### Update the file structure
-
-#### Use the tree command
-
-- Linux/Unix
-  - Install [tree command line tool](https://www.geeksforgeeks.org/tree-command-unixlinux/)
-  - Use the tree command to generate file structure:
-  ```
-  tree
-  ```
-
-Learn more about tree commands for Linux/Unix [here](https://www.geeksforgeeks.org/tree-command-unixlinux/).
-
-- Windows
-  - Use the tree command to generate file structure:
-  ```
-  tree /
-  ```
-
-Learn more about tree commands for Windows [here](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tree).
-
-## proof of legality
-
-This is the version right before the monetization of bettercanvas, original license and all.
-here is some proof the lisence was changed and this is based on the reverted MIT version 5.12.6
-![case1](./proof-of-legality/case1.png)
-![case2](./proof-of-legality/case2.png)
-
 ## Authors
 
 #### Fork Owner
@@ -344,6 +233,8 @@ here is some proof the lisence was changed and this is based on the reverted MIT
 You can fork, modify, and use this code however you like with attributes, but no commercial use.
 
 ![Better Canvas](/icon/icon-48.png)
+
+Copyright (c) 2024 ksucpea
 
 Copyright (c) 2026 Guy Sandler
 

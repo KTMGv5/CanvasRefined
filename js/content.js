@@ -3,6 +3,8 @@ const current_page = window.location.pathname;
 let assignments = null;
 let grades = null;
 let announcements = [];
+let completed = [];
+let assignmentsDue = [];
 let options = {};
 let timeCheck = null;
 let reminderCheck = null;
@@ -186,38 +188,38 @@ function showExampleReminder() {
     example.querySelector(".bettercanvas-reminder-due").textContent = "This notification will pop up in other pages to remind you of incomplete assignments that are due in less than 6 hours." /*It will notify again at 2 hours if the 'Remind 2x' option is on."*/;
 }
 
-async function ScheduledReminderCheck() {
-    let date = new Date();
-    let currentHour = date.getHours();
-    let currentMinute = date.getMinutes();
-    if (options.scheduledReminderTime) {
-        let [hour, minute] = options.scheduledReminderTime.split(":");
-        if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
-            const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
-            container.style.display = "flex";
-            container.textContent = "";
-            const storage = await chrome.storage.sync.get("reminders");
-            const now = (new Date()).getTime();
-            storage["reminders"].forEach(reminder => {
-                if (reminder.d >= now) {
-                    createReminder(reminder, container);
-                }
-            });
-        }
-    }
-}
+// async function ScheduledReminderCheck() {
+//     let date = new Date();
+//     let currentHour = date.getHours();
+//     let currentMinute = date.getMinutes();
+//     if (options.scheduledReminderTime) {
+//         let [hour, minute] = options.scheduledReminderTime.split(":");
+//         if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
+//             const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+//             container.style.display = "flex";
+//             container.textContent = "";
+//             const storage = await chrome.storage.sync.get("reminders");
+//             const now = (new Date()).getTime();
+//             storage["reminders"].forEach(reminder => {
+//                 if (reminder.d >= now) {
+//                     createReminder(reminder, container);
+//                 }
+//             });
+//         }
+//     }
+// }
 
-function toggleScheduledReminders() {
-    clearInterval(reminderCheck);
-    if (options.scheduledReminder !== true) return;
-    ScheduledReminderCheck();
-    reminderCheck = setInterval(ScheduledReminderCheck, 60000);
-}
+// function toggleScheduledReminders() {
+//     clearInterval(reminderCheck);
+//     if (options.scheduledReminder !== true) return;
+//     ScheduledReminderCheck();
+//     reminderCheck = setInterval(ScheduledReminderCheck, 60000);
+// }
 
 isDomainCanvasPage();
 
 function isDomainCanvasPage() {
-    chrome.storage.sync.get(['custom_domain', 'dark_mode', 'dark_preset', 'device_dark', 'remind', 'scheduledReminder', 'scheduledReminderTime'], result => {
+    chrome.storage.sync.get(['custom_domain', 'dark_mode', 'dark_preset', 'device_dark', 'remind'/*, 'scheduledReminder', 'scheduledReminderTime'*/], result => {
         options = result;
         if (result.custom_domain.length && result.custom_domain[0] !== "") {
             for (let i = 0; i < result.custom_domain.length; i++) {
@@ -230,14 +232,14 @@ function isDomainCanvasPage() {
             // if the code reaches this point, its not a canvas page so run the reminders
             setTimeout(reminderWatch, 2000);
             setInterval(reminderWatch, 60000);
-            toggleScheduledReminders();
+            // toggleScheduledReminders();
             // turn the reminders on/off if the option is changed
             chrome.storage.onChanged.addListener((changes) => {
                 Object.keys(changes).forEach(key => {
                     if (key === "remind") reminderWatch();
                     if (key === "scheduledReminder" || key === "scheduledReminderTime") {
                         options[key] = changes[key].newValue;
-                        toggleScheduledReminders();
+                        // toggleScheduledReminders();
                     }
                 })
             })
@@ -253,7 +255,7 @@ function startExtension() {
     chrome.storage.sync.get(null, result => {
         options = { ...options, ...result };
         toggleAutoDarkMode();
-        toggleScheduledReminders();
+        // toggleScheduledReminders();
         getApiData();
         checkDashboardReady();
         loadCustomFont();
@@ -261,7 +263,7 @@ function startExtension() {
         changeFavicon();
         updateReminders();
         applyCustomBackground();
-        
+
         //getClassAverages();
         
         setTimeout(() => document.getElementById("footer").remove(), 800);
@@ -289,98 +291,121 @@ function applyOptionsChanges(changes) {
     Object.keys(changes).forEach(key => {
         console.log(key + " changed");
         switch (key) {
-            case ("dark_mode"):
-            case ("dark_preset"):
-            case ("device_dark"):
-                toggleDarkMode();
-                break;
-            case ("auto_dark"):
-            case ("auto_dark_start"):
-            case ("auto_dark_end"):
-                toggleAutoDarkMode();
-                break;
-            case ("gradient_cards"):
-                changeGradientCards();
-                break;
-            case ("dashboard_notes"):
-                loadDashboardNotes();
-                break;
-            case ("dashboard_grades"):
-            case ("grade_hover"):
-                if (!grades) getGrades();
-                insertGrades();
-                break;
-            case ("assignments_due"):
-            case ("num_assignments"):
-                if (!assignments) getAssignments();
-                if (document.querySelectorAll(".bettercanvas-card-assignment").length === 0) setupCardAssignments();
-                loadCardAssignments();
-                break;
-            case ("custom_assignments"):
-            case ("assignment_date_format"):
-            case ("card_overdues"):
-            case ("relative_dues"):
-                cardAssignments = preloadAssignmentEls();
-                loadCardAssignments();
-                break;
-            case ("custom_cards"):
-            case ("custom_cards_2"):
-            case ("custom_cards_3"):
-                customizeCards();
-                break;
-            case ("todo_hr24"):
-            case ("num_todo_items"):
-            case ("hover_preview"):
-            case ("todo_overdues"):
-            case ("todo_colors"):
-            case ("custom_cards_3"):
-                moreAnnouncementCount = 0;
-                moreAssignmentCount = 0;
-                loadBetterTodo();
-                break;
-            case ("gpa_calc"):
-            case ("gpa_calc_prepend"):
-            case ("gpa_calc_weighted"):
-            case ("gpa_calc_cumulative"):
-                if (!grades) getGrades();
-                setupGPACalc();
-                break;
-            case ("gpa_calc_bounds"):
-                calculateGPA2();
-                break;
-            case ("custom_font"):
-                loadCustomFont();
-                break;
-            case ("remlogo"):
-            case ("disable_color_overlay"):
-            case ("condensed_cards"):
-            case ("hide_feedback"):
-            case ("full_width"):
-            case ("custom_styles"):
-                applyAestheticChanges();
-                break;
-            case ("show_updates"):
-                showUpdateMsg();
-                break;
-            case ("remind"):
-                showExampleReminder();
-                break;
-			case ("scheduledReminder"):
-			case ("scheduledReminderTime"):
-				toggleScheduledReminders();
+			case "dark_mode":
+			case "dark_preset":
+			case "device_dark":
+				toggleDarkMode();
 				break;
-            case ("imageSize"):
-            case ("cardRoundness"):
-            case ("cardSpacing"):
-            case ("cardWidth"):
-            case ("cardHeight"):
-            case ("customCardStyles"):
-                applyAestheticChanges();
-                break;
-            case ("customBackgroundLink"):
-                applyCustomBackground();
-                break;
-        }
+			case "auto_dark":
+			case "auto_dark_start":
+			case "auto_dark_end":
+				toggleAutoDarkMode();
+				break;
+			case "gradient_cards":
+				changeGradientCards();
+				break;
+			case "dashboard_notes":
+				loadDashboardNotes();
+				break;
+			case "dashboard_grades":
+			case "grade_hover":
+				if (!grades) getGrades();
+				insertGrades();
+				break;
+			case "assignments_due":
+			case "num_assignments":
+				if (!assignments) getAssignments();
+				if (
+					document.querySelectorAll(".bettercanvas-card-assignment")
+						.length === 0
+				)
+					setupCardAssignments();
+				loadCardAssignments();
+				break;
+			case "custom_assignments":
+			case "assignment_date_format":
+			case "card_overdues":
+			case "relative_dues":
+				cardAssignments = preloadAssignmentEls();
+				loadCardAssignments();
+				break;
+			case "custom_cards":
+			case "custom_cards_2":
+			case "custom_cards_3":
+				customizeCards();
+				break;
+			case "todo_hr24":
+			case "todo_separate_scrollbar":
+			case "num_todo_items":
+			case "hover_preview":
+			// case "todo_overdues":
+			case "todo_hide_feedback":
+			case "todo_full_height":
+			case "custom_cards_3":
+				moreAnnouncementCount = 0;
+				moreAssignmentCount = 0;
+				// loadBetterTodo();
+				clearTodoList();
+				createTodoSections(document.querySelector("#bettercanvas-todo-list"));
+				break;
+			case "gpa_calc":
+			case "gpa_calc_prepend":
+			case "gpa_calc_weighted":
+			case "gpa_calc_cumulative":
+				if (!grades) getGrades();
+				setupGPACalc();
+				break;
+			case "gpa_calc_bounds":
+				calculateGPA2();
+				break;
+			case "custom_font":
+				loadCustomFont();
+				break;
+			case "remlogo":
+			case "disable_color_overlay":
+			case "condensed_cards":
+			case "hide_feedback":
+			case "full_width":
+			case "custom_styles":
+				applyAestheticChanges();
+				break;
+			// case "show_updates":
+			// 	showUpdateMsg();
+			// 	break;
+			case "remind":
+				showExampleReminder();
+				break;
+			// case "scheduledReminder":
+			// case "scheduledReminderTime":
+			// 	toggleScheduledReminders();
+				// break;
+			case "imageSize":
+			case "cardRoundness":
+			case "cardSpacing":
+			case "cardWidth":
+			case "cardHeight":
+			case "customCardStyles":
+				applyAestheticChanges();
+				break;
+			case "customBackgroundLink":
+				applyCustomBackground();
+				break;
+			case "better_todo":
+				if (options.better_todo) {
+					setupBetterTodo();
+				} else {
+					window.location.reload();
+				}
+			case "better_sidebar":
+				if (options.better_sidebar) setupBetterSidebar();
+				// else window.location.reload();
+				else {
+					document.getElementById("header").style.display = "block";
+					document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "54px");
+					document.getElementById("better-sidebar-container").remove();
+				}
+				break;
+		}
     });
 }
 
@@ -398,6 +423,11 @@ function applyCustomBackground() {
         }
         .ic-Dashboard-header__layout { 
             background: none !important;  
+            backdrop-filter: blur(10px) !important;
+            border-radius: 5px;
+        }
+        #right-side-wrapper {
+            background: color-mix(in srgb, var(--bcbackground-0) 45%, transparent) !important;
             backdrop-filter: blur(10px) !important;
             border-radius: 5px;
         }
@@ -427,29 +457,49 @@ function resetTimer() {
 }
 
 function checkDashboardReady() {
-    if (current_page !== "/" && current_page !== "") return;
-    const callback = (mutationList) => {
-        for (const mutation of mutationList) {
-            if (mutation.type === "childList") {
-                if (mutation.target == document.querySelector("#DashboardCard_Container")) {
-                    let cards = document.querySelectorAll('.ic-DashboardCard');
-                    changeGradientCards();
-                    setupCardAssignments();
-                    loadCardAssignments();
-                    customizeCards(cards);
-                    insertGrades();
-                    loadDashboardNotes();
-                    setupGPACalc();
-                    showUpdateMsg();
-                } else if (mutation.target == document.querySelector('#right-side')) {
-                    if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
-                        setupBetterTodo();
-                        loadBetterTodo();
-                    }
-                }
-            }
-        }
-    };
+	let callback;
+    if (current_page == "/" || current_page == "") {
+		console.log("I am dashboard");
+		callback = (mutationList) => {
+			for (const mutation of mutationList) {
+				if (mutation.type === "childList") {
+					if (mutation.target == document.querySelector("#DashboardCard_Container")) {
+						let cards = document.querySelectorAll('.ic-DashboardCard');
+						changeGradientCards();
+						setupCardAssignments();
+						loadCardAssignments();
+						customizeCards(cards);
+						insertGrades();
+						loadDashboardNotes();
+						setupGPACalc();
+						showUpdateMsg();
+					} else if (mutation.target == document.querySelector('#right-side')) {
+						if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
+							setupBetterTodo();
+							setupBetterSidebar();
+							// loadBetterTodo();
+						}
+					}
+				}
+			}
+		};
+	}
+	// else return;
+	else { // all outside dashboard
+		console.log("I am outside", current_page);
+		if (current_page.match(/^\/courses\/(\d+)\/?$/)) { // course main pages
+			callback = (mutationList) => {
+				for (const mutation of mutationList) {
+					if (mutation.target == document.querySelector('#right-side')) {
+						if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
+							setupBetterTodo();
+							setupBetterSidebar("course");
+						}
+					}
+				}
+			};
+		}
+	}
 
     const observer = new MutationObserver(callback);
     observer.observe(document.querySelector('html'), { childList: true, subtree: true });
@@ -701,22 +751,22 @@ async function getCards(api = null) {
 Better todo list
 */
 
-function setAssignmentState(id, updates) {
-    let states = options.assignment_states;
-    let length = JSON.stringify(states).length;
-    // remove the oldest states if the size is approaching the storage limit
-    if (length > 7400) {
-        let keys = Object.keys(states).sort((a, b) => states[b].expire - states[a].expire);
-        keys.splice(-5);
-        let newStates = {};
-        keys.forEach(key => {
-            newStates[key] = states[key];
-        });
-        states = newStates;
-    }
-    states[id] = states[id] ? { ...states[id], ...updates } : updates;
-    chrome.storage.sync.set({ assignment_states: states }).then(() => { cardAssignments = preloadAssignmentEls(); loadBetterTodo(); loadCardAssignments(); });
-}
+// function setAssignmentState(id, updates) {
+//     let states = options.assignment_states;
+//     let length = JSON.stringify(states).length;
+//     // remove the oldest states if the size is approaching the storage limit
+//     if (length > 7400) {
+//         let keys = Object.keys(states).sort((a, b) => states[b].expire - states[a].expire);
+//         keys.splice(-5);
+//         let newStates = {};
+//         keys.forEach(key => {
+//             newStates[key] = states[key];
+//         });
+//         states = newStates;
+//     }
+//     states[id] = states[id] ? { ...states[id], ...updates } : updates;
+//     chrome.storage.sync.set({ assignment_states: states }).then(() => { cardAssignments = preloadAssignmentEls(); loadBetterTodo(); loadCardAssignments(); });
+// }
 
 function createTodoCreateBtn(location) {
     let confirmButton = makeElement("button", location, { "className": "bettercanvas-custom-btn", "textContent": "Create" });
@@ -777,68 +827,463 @@ function createTodoCreateBtn(location) {
     });
 }
 
-function createTodoHeader(location) {
-    let todoHeader = makeElement("h2", location, { "className": "todo-list-header", "style": "display: flex; align-items:center; justify-content:space-between;" });
-    //todoHeader.style = "display: flex; align-items:center; justify-content:space-between;";
-    if (!options.custom_cards || Object.keys(options.custom_cards).length === 0) return;
-    let addFillout = makeElement("div", location, { "className": "bettercanvas-add-assignment" });
-    let now = new Date();
-    let year = now.getFullYear();
-    let month = now.getMonth() + 1;
-    let day = now.getDate();
-    month = month < 10 ? "0" + month : month;
-    day = day < 10 ? "0" + day : day;
-    addFillout.innerHTML = '<input type="text" placeholder="Name" id="bettercanvas-custom-name" class="bettercanvas-custom-input"></input><select id="bettercanvas-custom-course" class="bettercanvas-custom-input"><option value="" disabled selected>Select course</option></select><div style="display: flex;gap:5px"><input type="date" id="bettercanvas-custom-date"  class="bettercanvas-custom-input"></input><input type="time" id="bettercanvas-custom-time"  class="bettercanvas-custom-input" value="23:59"></input></div>';
-    addFillout.querySelector("#bettercanvas-custom-date").value = year + "-" + month + "-" + day;
-    let selectCourse = document.querySelector("#bettercanvas-custom-course");
-    Object.keys(options.custom_cards).forEach(id => {
-        let card = options.custom_cards[id];
-        let courseName = makeElement("option", selectCourse, { "className": "bettercanvas-select-course-option", "textContent": card.default });
-        courseName.value = id;
-    });
+// better todo html layer 1
+// function createTodoHeader(location) {
+//     let todoHeader = makeElement("h2", location, { "className": "todo-list-header", "style": "display: flex; align-items:center; justify-content:space-between;" });
+//     //todoHeader.style = "display: flex; align-items:center; justify-content:space-between;";
+//     if (!options.custom_cards || Object.keys(options.custom_cards).length === 0) return;
+//     let addFillout = makeElement("div", location, { "className": "bettercanvas-add-assignment" });
+//     let now = new Date();
+//     let year = now.getFullYear();
+//     let month = now.getMonth() + 1;
+//     let day = now.getDate();
+//     month = month < 10 ? "0" + month : month;
+//     day = day < 10 ? "0" + day : day;
+//     addFillout.innerHTML = '<input type="text" placeholder="Name" id="bettercanvas-custom-name" class="bettercanvas-custom-input"></input><select id="bettercanvas-custom-course" class="bettercanvas-custom-input"><option value="" disabled selected>Select course</option></select><div style="display: flex;gap:5px"><input type="date" id="bettercanvas-custom-date"  class="bettercanvas-custom-input"></input><input type="time" id="bettercanvas-custom-time"  class="bettercanvas-custom-input" value="23:59"></input></div>';
+//     addFillout.querySelector("#bettercanvas-custom-date").value = year + "-" + month + "-" + day;
+//     let selectCourse = document.querySelector("#bettercanvas-custom-course");
+//     Object.keys(options.custom_cards).forEach(id => {
+//         let card = options.custom_cards[id];
+//         let courseName = makeElement("option", selectCourse, { "className": "bettercanvas-select-course-option", "textContent": card.default });
+//         courseName.value = id;
+//     });
 
-    createTodoCreateBtn(addFillout);
-    let headerText = makeElement("span", todoHeader, { "className": "bettercanvas-todo-header", "textContent": "To Do" });
-    let addButton = makeElement("button", todoHeader, { "className": "bettercanvas-custom-btn", "textContent": "+ Add" });
-    addButton.addEventListener("click", () => {
-        addFillout.classList.toggle("bettercanvas-custom-open");
-    });
+//     createTodoCreateBtn(addFillout);
+//     let headerText = makeElement("span", todoHeader, { "className": "bettercanvas-todo-header", "textContent": "To Do" });
+//     let addButton = makeElement("button", todoHeader, { "className": "bettercanvas-custom-btn", "textContent": "+ Add" });
+//     addButton.addEventListener("click", () => {
+//         addFillout.classList.toggle("bettercanvas-custom-open");
+//     });
 
-    headerText.addEventListener("click", () => {
-        if (filter === "todo") {
-            filter = "done";
-            headerText.textContent = "Done";
-        } else {
-            filter = "todo";
-            headerText.textContent = "To Do";
-        }
-        moreAssignmentCount = 0;
-        moreAnnouncementCount = 0;
-        loadBetterTodo();
-    });
+//     headerText.addEventListener("click", () => {
+//         if (filter === "todo") {
+//             filter = "done";
+//             headerText.textContent = "Done";
+//         } else {
+//             filter = "todo";
+//             headerText.textContent = "To Do";
+//         }
+//         moreAssignmentCount = 0;
+//         moreAnnouncementCount = 0;
+//         loadBetterTodo();
+//     });
+// }
+
+function convertToDueDate(dueAt) {
+	final = "due ";
+	let date = new Date(dueAt);
+	final += date.toLocaleString("en-US", { month: "short", day: "numeric" });
+	final += " at " + date.toLocaleString("en-US", { hour: "numeric", minute: "numeric", hour12: !options.todo_hr24 });
+	return final;
+}
+function updateIndicator(element) {
+	const indicator = document.getElementById("better-todo-indicator");
+	indicator.style.width = `${element.offsetWidth*2}px`;
+	indicator.style.left = `${element.offsetLeft - (element.offsetWidth * .5)}px`;
+
+	const buttons = ["announcement", "assignments", "completed"];
+	buttons.forEach(button => {
+		const btn = document.getElementById(`better-todo-${button}`);
+		if (btn == element) {
+			btn.firstElementChild.style.opacity = "1";
+			// btn.style.filter = "none";
+		}
+		else {
+			btn.firstElementChild.style.opacity = ".3";
+			// btn.style.filter = "grayscale(100%)";
+		}
+	})
+
+}
+// better todo html
+betterTodoFilter = "tasks";
+let domContainers = {};
+async function createTodoSections(location) {
+	if (!location.querySelector("#better-todo-header")) {
+		let header = makeElement("div", location, { id: "better-todo-header" });
+		header.style = "display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bcbackground-1);padding-bottom:-2px;";
+		let today = new Date();
+		today.setHours(0,0,0,0);
+		const todayString = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+		header.innerHTML = `
+			<h2 style="border:none !important;padding: 0">Tasks</h2>
+			<h2 style="border:none !important;padding: 0">${todayString}</h2>
+		`;
+
+		let filterControl = makeElement("div", location, { "id": "better-todo-filter" });
+		filterControl.innerHTML = `
+		<div style="display:flex;justify-content:center;margin-top:20px;">
+			<div id="better-todo-filterbuttongroup" style="display:flex;gap:50px;justify-content:space-between;position:relative;padding-bottom:5px;width:70%;height:30px;">
+				<div id="better-todo-announcement" style="color:black !important;width:25px;cursor:pointer;">
+					<svg fill="var(--bctext-0)" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg" style="transition:all .3s ease;">
+						<g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier">
+							<path d="M1587.162 31.278c11.52-23.491 37.27-35.689 63.473-29.816 25.525 6.099 43.483 28.8 43.483 55.002V570.46C1822.87 596.662 1920 710.733 1920 847.053c0 136.32-97.13 250.503-225.882 276.705v513.883c0 26.202-17.958 49.016-43.483 55.002a57.279 57.279 0 0 1-12.988 1.468c-21.12 0-40.772-11.745-50.485-31.171C1379.238 1247.203 964.18 1242.347 960 1242.347H564.706v564.706h87.755c-11.859-90.127-17.506-247.003 63.473-350.683 52.405-67.087 129.657-101.082 229.948-101.082v112.941c-64.49 0-110.57 18.861-140.837 57.487-68.781 87.868-45.064 263.83-30.269 324.254 4.18 16.828.34 34.673-10.277 48.34-10.73 13.665-27.219 21.684-44.499 21.684H508.235c-31.171 0-56.47-25.186-56.47-56.47v-621.177h-56.47c-155.747 0-282.354-126.607-282.354-282.353v-56.47h-56.47C25.299 903.523 0 878.336 0 847.052c0-31.172 25.299-56.471 56.47-56.471h56.471v-56.47c0-155.634 126.607-282.354 282.353-282.354h564.593c16.941-.112 420.48-7.002 627.275-420.48Zm-5.986 218.429c-194.71 242.371-452.216 298.164-564.705 311.04v572.724c112.489 12.876 369.995 68.556 564.705 311.04ZM903.53 564.7H395.294c-93.402 0-169.412 76.01-169.412 169.411v225.883c0 93.402 76.01 169.412 169.412 169.412H903.53V564.7Zm790.589 123.444v317.93c65.618-23.379 112.94-85.497 112.94-159.021 0-73.525-47.322-135.53-112.94-158.909Z" fill-rule="evenodd"></path>
+						</g>
+					</svg>
+				</div>
+				<div id="better-todo-assignments" style="color:black !important;width:25px;cursor:pointer;">
+					<svg fill="var(--bctext-0)" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff" style="transition:all .3s ease;">
+						<g id="SVGRepo_bgCarrier" stroke-width="1"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier">
+							<path d="M1468.214 0v551.145L840.27 1179.089c-31.623 31.623-49.693 74.54-49.693 119.715v395.289h395.288c45.176 0 88.093-18.07 119.716-49.694l162.633-162.633v438.206H0V0h1468.214Zm129.428 581.3c22.137-22.136 57.825-22.136 79.962 0l225.879 225.879c22.023 22.023 22.023 57.712 0 79.848l-677.638 677.637c-10.616 10.503-24.96 16.49-39.98 16.49H903.516v-282.35c0-15.02 5.986-29.364 16.49-39.867Zm-920.005 548.095H338.82v112.94h338.818v-112.94Zm225.88-225.879H338.818v112.94h564.697v-112.94Zm734.106-202.5-89.561 89.56 146.03 146.031 89.562-89.56-146.031-146.031Zm-508.228-362.197H338.82v338.818h790.576V338.82Z" fill-rule="evenodd"></path>
+						</g>
+					</svg>
+				</div>
+				<div id="better-todo-completed" style="color:black !important;width:25px;cursor:pointer;">
+					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="transition:all .3s ease;">
+						<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+						<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier"> <g id="Interface / Checkbox_Check">
+							<path id="Vector" d="M8 12L11 15L16 9M4 16.8002V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2842 4.21799 18.9079C4 18.4801 4 17.9203 4 16.8002Z" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+						</g></g>
+					</svg>
+				</div>
+				<div id="better-todo-indicator" style="position:absolute;bottom:4px;left:0;height:3px;background-color:var(--bctext-0);border-radius:3px 3px 0 0;transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+			</div>
+		</div>
+		`;
+		setTimeout(() => updateIndicator(document.getElementById("better-todo-assignments")), 10);
+
+		document.getElementById("better-todo-announcement").addEventListener("click", (e) => {
+			betterTodoFilter = "announcements";
+			moreAnnouncementCount = 0;
+			updateIndicator(e.currentTarget);
+			clearTodoList();
+			createTodoSections(location);
+		});
+		document.getElementById("better-todo-assignments").addEventListener("click", (e) => {
+			betterTodoFilter = "tasks";
+			moreAssignmentCount = 0;
+			updateIndicator(e.currentTarget);
+			clearTodoList();
+			createTodoSections(location);
+		});
+		document.getElementById("better-todo-completed").addEventListener("click", (e) => {
+			betterTodoFilter = "completed";
+			moreCompletedCount = 0;
+			updateIndicator(e.currentTarget);
+			clearTodoList();
+			createTodoSections(location);
+		});
+
+		let mainSection = makeElement("div", location, {
+			id: "better-todo-main",
+		});
+		mainSection.style = "display:flex;flex-direction:column;";
+	}
+	let mainSection = location.querySelector("#better-todo-main");
+	assignments.then(data => {
+		// console.log(data);
+		data.forEach(item => {
+			announcements = data.filter(item => item.plannable_type == "announcement");
+			assignmentsDue = data.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && !item.submissions?.submitted && !item.planner_override?.marked_complete);
+			completed = data.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && (item.submissions?.submitted || item.planner_override?.marked_complete));
+		});
+		// console.log("assignments", assignmentsDue);
+		// console.log("announcements", announcements);
+		// console.log("completed", completed);
+
+		if (!document.getElementById("better-todo-announcement-badge")) {
+			let isAnnoucementBadge = 0;
+			announcements.forEach(item => {
+				if (item.plannable.read_state == "unread") {
+					isAnnoucementBadge++;
+					return;
+				}
+			})
+			if (isAnnoucementBadge > 0) {
+				makeElement("div", document.getElementById("better-todo-announcement"), {
+					id: "better-todo-announcement-badge",
+					style: "background-color:#ff0000;width:15px;height:15px;border-radius:50%;font-size:12px;position:absolute;top:-7px;left:16px;display:flex;justify-content:center;align-items:center;", // TODO: theme compatibility
+					innerHTML: `<span style="color:white;">${isAnnoucementBadge}</span>`
+				})
+			}
+		}
+
+		domContainers = {};
+		const groupKeys = ["-1", "0", "1", "2", "3", "4", "5", "6", "7", "14", "21", "30", "Later", "New", "Seen", "Ungraded", "Graded"];
+		for (const key of groupKeys) {
+			let wrapper = makeElement("div", mainSection, {
+				style: "display:none;margin-top:10px;",
+				className: "better-todo-dueheader",
+			});
+			let label = "";
+			if (key == "Later") label = "Due <strong>Later</strong>";
+			if (key == "-1") label = "<strong>Overdue</strong>";
+			else if (key == "0") label = "Due <strong>Today</strong>";
+			else if (key == "1") label = "Due <strong>Tommorow</strong>";
+			else if (key >= 2 && key < 7) label = "Due <strong>" + key + " days</strong>";
+			else if (key >= 7 && key < 30) label = "Due <strong>" + key/7 + " weeks</strong>";
+			else if (key == "30") label = "Due <strong>1 month</strong>";
+			else label = "<strong>" + key + "</strong>";
+			makeElement("div", wrapper, {
+				innerHTML: "<span>" + label + "</span>",
+				style: "display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--bctext-0);" // TODO: might not be theme compatible
+			})
+
+			let listContainer = makeElement("div", wrapper, { className: "todo-group-list" });
+			listContainer.style = "display:flex;flex-direction:column;gap:10px;";
+
+			domContainers[key] = { wrapper, listContainer };
+		}
+
+
+		if (betterTodoFilter == "tasks") {
+			populateAssignments();
+		}
+		if (betterTodoFilter == "announcements") {
+			populateAnnouncements();
+		}
+		if (betterTodoFilter == "completed") {
+			populateAssignments(true);
+		}
+
+		const feedbackElement = document.querySelector(".recent_feedback");
+		if (feedbackElement) {
+			if (options.todo_hide_feedback == true) {
+				feedbackElement.style.display = "none";
+			} else {
+				feedbackElement.style.display = "block";
+			}
+		}
+
+		const sidebar = document.getElementById("right-side-wrapper");
+		if (options.todo_full_height) {
+			sidebar.style.minHeight = "100vh";
+		} else {
+			sidebar.style.minHeight = "";
+		}
+		if (options.todo_separate_scrollbar) {
+			sidebar.style.position = "sticky";
+			sidebar.style.top = "0";
+			sidebar.style.height = "100vh";
+			sidebar.style.overflowY = "auto";
+		} else {
+			sidebar.style.position = "";
+			sidebar.style.top = "";
+			sidebar.style.height = "";
+			sidebar.style.overflowY = "";
+			// maybe invisible scrollbar?
+		}
+	});
 }
 
-function createTodoSections(location) {
-    let todoHeader = createTodoHeader(location);
+function clearTodoList() {
+	document.getElementById("better-todo-main").querySelectorAll(".todo-group-list").forEach(list => {
+		list.innerHTML = "";
+	});
+	document.querySelectorAll(".better-todo-dueheader").forEach(header => {
+		header.remove();
+	});
+}
 
-    let todoAssignments = makeElement("ul", location, { "id": "bettercanvas-todo-list" });
-    /*
-    let todoAssignments = document.createElement("ul");
-    todoAssignments.id = "bettercanvas-todo-list";
-    location.appendChild(todoAssignments);
-    */
-    let announcementHeader = makeElement("h2", location, { "className": "todo-list-header", "textContent": "Announcements" });
-    let todoAnnouncements = makeElement("ul", location, { "id": "bettercanvas-announcement-list" });
-    /*
-    let todoAnnouncements = document.createElement("ul");
-    todoAnnouncements.id = "bettercanvas-announcement-list";
-    location.appendChild(todoAnnouncements);
-    */
-    let loader = '<div class="bettercanvas-todo-item-loader"><div style="width: 100px" class="bettercanvas-skeleton-text"></div><div style="width: 200px" class="bettercanvas-skeleton-text"></div><div class="bettercanvas-skeleton-text"></div></div>';
-    for (let i = 0; i < options.num_todo_items; i++) {
-        todoAssignments.innerHTML += loader;
-        todoAnnouncements.innerHTML += loader;
-    }
+function populateAssignments(iscompleted = false) {
+	const today = new Date();
+	today.setHours(0,0,0,0);
+	let assignments = iscompleted ? completed : assignmentsDue;
+
+	let assignmentCount = 0;
+	const maxElements = options.num_todo_items;
+
+	assignments.forEach((item) => {
+		let dueGroup = -1;
+		if (!iscompleted) {
+			let dueDate = new Date(item.plannable_date);
+			dueDate.setHours(0,0,0,0);
+			const diffDays = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
+			if (diffDays < 0) {dueGroup = -1;}
+			else if (diffDays <= 1) { dueGroup = diffDays.toString(); }
+			else if (diffDays <= 7) { dueGroup = diffDays.toString(); }
+			else if (diffDays <= 14) {dueGroup = 14;}
+			else if (diffDays <= 21) {dueGroup = 21;}
+			else if (diffDays <= 30) {dueGroup = 30;}
+			else {dueGroup = "Later"};
+		} else {
+			dueGroup = item.submissions?.graded ? "Graded" : "Ungraded";
+		}
+
+		let assignment
+		const targetContainer = domContainers[dueGroup];
+		assignmentCount++;
+		let isHidden = assignmentCount > maxElements;
+
+		if (targetContainer) {
+			if (!isHidden) {
+				targetContainer.wrapper.style.display = "block";
+				targetContainer.wrapper.setAttribute("data-has-visible", "true");
+			}
+			else {
+				if (!targetContainer.wrapper.hasAttribute("data-has-visible")) {
+					targetContainer.wrapper.classList.add(
+						"better-todo-hidden-wrapper",
+					);
+				}
+			}
+
+			// targetContainer.wrapper.style.display = "block";
+			assignment = makeElement("div", targetContainer.listContainer, {
+				class: "better-todo-assignment",
+			});
+			if (isHidden) {
+				assignment.style.display = "none";
+				assignment.classList.add("better-todo-hidden-assignment");
+			}
+		}
+
+		const courseColor =
+			options.custom_cards_3?.[String(item.course_id)]?.color ??
+			options.custom_cards_3?.[item.course_id]?.color ??
+			options.custom_cards_3?.[item.plannable.course_id]?.color ??
+			"#cccccc";
+
+		assignment.style.overflowX = "hidden";
+		assignment.innerHTML = `
+		<div style="display:flex;align-items:center;gap:5px;width:100%;height:60px;background:var(--bcbackground-2);border-radius:5px;transition:all .4s ease;overflow:hidden;">
+			<div style="width:40px;display:flex;align-items:center;justify-content:center;background-color:${courseColor};height:100%;border-radius:5px 0 0 5px;">
+				<div style="width:20px;height:20px;display:flex;margin-left:5px;">
+					<svg fill="var(--bctext-0)" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg">
+						<g id="SVGRepo_bgCarrier" stroke-width="1"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier">
+							<path d="M1468.214 0v551.145L840.27 1179.089c-31.623 31.623-49.693 74.54-49.693 119.715v395.289h395.288c45.176 0 88.093-18.07 119.716-49.694l162.633-162.633v438.206H0V0h1468.214Zm129.428 581.3c22.137-22.136 57.825-22.136 79.962 0l225.879 225.879c22.023 22.023 22.023 57.712 0 79.848l-677.638 677.637c-10.616 10.503-24.96 16.49-39.98 16.49H903.516v-282.35c0-15.02 5.986-29.364 16.49-39.867Zm-920.005 548.095H338.82v112.94h338.818v-112.94Zm225.88-225.879H338.818v112.94h564.697v-112.94Zm734.106-202.5-89.561 89.56 146.03 146.031 89.562-89.56-146.031-146.031Zm-508.228-362.197H338.82v338.818h790.576V338.82Z" fill-rule="evenodd"></path>
+						</g>
+					</svg>
+				</div>
+			</div>
+			<div style="width:calc(100% - 40px);height:80%;display:flex;flex-direction:column;gap:5px;padding-left:2px;box-sizing:border-box;overflow:hidden;position:relative;">
+				<div style="display:flex;flex-direction:column;gap:3px;">
+					<span style="color:${courseColor};font-size:12px;margin-top:-2px;">${item.context_name}</span>
+					<a href="${domain + item.html_url}" style="color:inherit;text-decoration:none;font-weight:bold;text-overflow:ellipsis;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-5px;">${item.plannable.title}</a>
+					<span style="color:var(--bctext-0);font-size:12px;margin-top:-5px;">${convertToDueDate(item.plannable_date)}</span>
+				</div>
+				<svg class="better-todo-assignment-checkmark" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;position:absolute;top:0px;right:5px;opacity:0.3;transition:all .3s ease;cursor:pointer;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">
+					<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+					<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+					<g id="SVGRepo_iconCarrier"> <g id="Interface / Checkbox_Check">
+						<path id="Vector" d="M8 12L11 15L16 9M4 16.8002V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2842 4.21799 18.9079C4 18.4801 4 17.9203 4 16.8002Z" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+					</g></g>
+				</svg>
+			</div>
+		</div>
+		`;
+		assignment.querySelector(".better-todo-assignment-checkmark").addEventListener("click", () => {
+			console.log("marking ", item.plannable.title, " as complete");
+			markAs(item, assignment.firstElementChild);
+		});
+	});
+
+	if (document.getElementById("better-todo-see-more")) {
+		document.getElementById("better-todo-see-more").remove();
+	}
+
+	if (assignmentCount > maxElements) {
+		let isExpanded = false;
+
+		let seeMoreButton = makeElement("button", document.getElementById("better-todo-main"), {
+			textContent: `View More (${assignmentCount - maxElements})`,
+			className: "bettercanvas-custom-btn",
+			id: "better-todo-see-more",
+			style: "width:100%;margin-top:15px;cursor:pointer;"
+		})
+		seeMoreButton.addEventListener("click", () => {
+			if (!isExpanded) {
+				document.querySelectorAll(".better-todo-hidden-assignment").forEach(element => element.style.display = "block");
+				document.querySelectorAll(".better-todo-hidden-wrapper").forEach(element => element.style.display = "block");
+				seeMoreButton.textContent = "View Less";
+			} else {
+				document.querySelectorAll(".better-todo-hidden-assignment").forEach(element => element.style.display = "none");
+				document.querySelectorAll(".better-todo-hidden-wrapper").forEach(element => element.style.display = "none");
+				seeMoreButton.textContent = `View More (${assignmentCount - maxElements})`;
+			}
+			isExpanded = !isExpanded;
+		})
+	}
+}
+
+function populateAnnouncements() {
+	const today = new Date();
+	today.setHours(0,0,0,0);
+
+	announcements.forEach((item) => {
+		let dueGroup = item.plannable.read_state == "read" ? "Seen" : "New";
+
+		let announcement;
+		// console.log(domContainers)
+		const targetContainer = domContainers[dueGroup];
+		if (targetContainer) {
+			targetContainer.wrapper.style.display = "block";
+			announcement = makeElement("div", targetContainer.listContainer, {
+				class: "better-todo-announcement",
+			});
+		}
+
+		const courseColor =
+			options.custom_cards_3?.[String(item.course_id)]?.color ??
+			options.custom_cards_3?.[item.course_id]?.color ??
+			options.custom_cards_3?.[item.plannable.course_id]?.color ??
+			"#cccccc";
+
+		let filter = "";
+		if (item.plannable.read_state == "read") {
+			filter = "filter: grayscale(40%);"
+		}
+
+		announcement.innerHTML = `
+		<div style="display:flex;align-items:center;gap:5px;width:100%;height:60px;background:var(--bcbackground-2);border-radius:5px;${filter}">
+			<div style="width:40px;display:flex;align-items:center;justify-content:center;background-color:${courseColor};height:100%;border-radius:5px 0 0 5px;">
+				<div style="width:23px;height:23px;display:flex;margin-left:0px;">
+					<svg fill="var(--bctext-0)" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg" style="transition:all .3s ease;">
+						<g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier">
+							<path d="M1587.162 31.278c11.52-23.491 37.27-35.689 63.473-29.816 25.525 6.099 43.483 28.8 43.483 55.002V570.46C1822.87 596.662 1920 710.733 1920 847.053c0 136.32-97.13 250.503-225.882 276.705v513.883c0 26.202-17.958 49.016-43.483 55.002a57.279 57.279 0 0 1-12.988 1.468c-21.12 0-40.772-11.745-50.485-31.171C1379.238 1247.203 964.18 1242.347 960 1242.347H564.706v564.706h87.755c-11.859-90.127-17.506-247.003 63.473-350.683 52.405-67.087 129.657-101.082 229.948-101.082v112.941c-64.49 0-110.57 18.861-140.837 57.487-68.781 87.868-45.064 263.83-30.269 324.254 4.18 16.828.34 34.673-10.277 48.34-10.73 13.665-27.219 21.684-44.499 21.684H508.235c-31.171 0-56.47-25.186-56.47-56.47v-621.177h-56.47c-155.747 0-282.354-126.607-282.354-282.353v-56.47h-56.47C25.299 903.523 0 878.336 0 847.052c0-31.172 25.299-56.471 56.47-56.471h56.471v-56.47c0-155.634 126.607-282.354 282.353-282.354h564.593c16.941-.112 420.48-7.002 627.275-420.48Zm-5.986 218.429c-194.71 242.371-452.216 298.164-564.705 311.04v572.724c112.489 12.876 369.995 68.556 564.705 311.04ZM903.53 564.7H395.294c-93.402 0-169.412 76.01-169.412 169.411v225.883c0 93.402 76.01 169.412 169.412 169.412H903.53V564.7Zm790.589 123.444v317.93c65.618-23.379 112.94-85.497 112.94-159.021 0-73.525-47.322-135.53-112.94-158.909Z" fill-rule="evenodd"></path>
+						</g>
+					</svg>
+				</div>
+			</div>
+			<div style="width:calc(100% - 40px);height:80%;display:flex;flex-direction:column;gap:5px;padding-left:2px;box-sizing:border-box;overflow:hidden;">
+				<div style="display:flex;flex-direction:column;gap:3px;">
+					<span style="color:${courseColor};font-size:12px;margin-top:-2px;">${item.context_name}</span>
+					<a href="${domain + item.html_url}" style="color:inherit;text-decoration:none;font-weight:bold;text-overflow:ellipsis;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-5px;">${item.plannable.title}</a>
+					<span style="color:var(--bctext-0);font-size:12px;margin-top:-5px;">${convertToDueDate(item.plannable_date)}</span>
+				</div>
+			</div>
+		</div>
+		`;
+	});
+}
+
+function markAs(item, element) {
+	const csrfToken = CSRFtoken();
+	const completeState = item.planner_override ? !item.planner_override.marked_complete : true;
+	fetch(domain + "/api/v1/planner/overrides/" + (item.planner_override ? "/" + item.planner_override.id : ""), {
+		method: item.planner_override ? "PUT" : "POST",
+		headers: {
+			"content-type":"application/json",
+			"accept":"application/json",
+			"X-CSRF-Token": csrfToken
+		},
+		body: JSON.stringify({
+			id: item.planner_override ? item.planner_override.id : null,
+			marked_complete: completeState,
+			plannable_id: item.plannable_id,
+			plannable_type: item.plannable_type
+		})
+	})
+	.then(resp => {
+		if (resp.status == 200 || resp.status == 201) {
+			console.log("marked as complete");
+			item.planner_override = item.planner_override || {};
+			item.planner_override.marked_complete = completeState;
+			element.style.transform = "translate(100%)";
+			element.style.opacity = "0";
+			setTimeout(() => {
+				clearTodoList();
+				createTodoSections(document.querySelector("#bettercanvas-todo-list"));
+			}, 400);
+		}
+	})
+	.catch(err => console.error("error marking as complete", err));
+
 }
 
 function createTodoViewMore(location, type) {
@@ -855,6 +1300,7 @@ function createTodoViewMore(location, type) {
     });
 }
 
+// better todo init
 function setupBetterTodo() {
     if (options.better_todo !== true) return;
     if (document.querySelector('#bettercanvas-todo-list')) return;
@@ -866,7 +1312,7 @@ function setupBetterTodo() {
         const feedback = list.querySelector(".events_list.recent_feedback");
 
         list.textContent = "";
-        list = makeElement("div", list, { "className": "bettercanvas-todosidebar" });
+        list = makeElement("div", list, { "className": "bettercanvas-todosidebar","id": "bettercanvas-todo-list"});
         createTodoSections(list);
 
         if (feedback) list.append(feedback);
@@ -874,6 +1320,191 @@ function setupBetterTodo() {
     } catch (e) {
         logError(e);
     }
+}
+
+function setupBetterSidebar(mode = "dash") {
+    if (!options.better_sidebar) return;
+    if (document.querySelector('#better-sidebar-container')) return;
+    let wrapper = document.querySelector("#wrapper");
+    if (!wrapper) return;
+    try {
+		const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
+		let courseLinks;
+		let expanded = false;
+		if (mode == "dash") {
+			document.getElementById("header").style.display = "none";
+			document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
+			mainWrapper.style.display = "flex";
+		}
+		else if (mode == "course") {
+			document.getElementById("header").style.display = "none";
+			document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
+			// document.getElementById("not_right_side").style.display = "flex";
+			mainWrapper.style.display = "flex";
+			document.querySelector(".ic-Layout-contentMain").style.flex = "1";
+			document.querySelector(".ic-Layout-contentMain").style.minWidth = "0";
+			courseLinks = getCourseLinks();
+			document.querySelector(".ic-app-nav-toggle-and-crumbs").style.display = "none";
+			expanded = true;
+		}
+
+        let sidebarList = makeElement("div", mainWrapper, { id: "better-sidebar-container",
+            style: `display:flex;flex-direction:column;width:50px;justify-content:center;align-items:center;box-sizing:border-box;position:relative;background-color:var(--bcbackground-0);height:100vh;position:sticky;top:0;left:0;`
+        }, true);
+		let sidebarContent = makeElement("div", sidebarList, {
+			style: "display:flex;flex-direction:column;gap:20px;width:100%;flex:1;justify-content:flex-start;align-items:center;margin:40px;"
+		});
+		// sidebar contents
+		createSidebarButton("Dashboard", domain + "/", sidebarContent,
+			`<svg fill="var(--bctext-0)" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
+				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+				<g id="SVGRepo_iconCarrier">
+					<rect x="2" y="2" width="9" height="11" rx="2"></rect>
+					<rect x="13" y="2" width="9" height="7" rx="2"></rect>
+					<rect x="2" y="15" width="9" height="7" rx="2"></rect>
+					<rect x="13" y="11" width="9" height="11" rx="2"></rect>
+				</g>
+			</svg>`,
+		);
+		createSidebarButton(
+			"Courses",
+			domain + "/courses",
+			sidebarContent,
+			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
+				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+				<g id="SVGRepo_iconCarrier">
+					<path d="M20 12V4C20 2.89543 19.1046 2 18 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V18.5" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+					<path d="M13 2V14L16.8182 11L20 14V5" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+				</g>
+			</svg>`,
+		);
+		createSidebarButton(
+			"Groups",
+			domain + "/groups",
+			sidebarContent,
+			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
+				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+				<g id="SVGRepo_iconCarrier">
+					<path fill-rule="evenodd" clip-rule="evenodd" d="M16 6C14.3432 6 13 7.34315 13 9C13 10.6569 14.3432 12 16 12C17.6569 12 19 10.6569 19 9C19 7.34315 17.6569 6 16 6ZM11 9C11 6.23858 13.2386 4 16 4C18.7614 4 21 6.23858 21 9C21 10.3193 20.489 11.5193 19.6542 12.4128C21.4951 13.0124 22.9176 14.1993 23.8264 15.5329C24.1374 15.9893 24.0195 16.6114 23.5631 16.9224C23.1068 17.2334 22.4846 17.1155 22.1736 16.6591C21.1979 15.2273 19.4178 14 17 14C13.166 14 11 17.0742 11 19C11 19.5523 10.5523 20 10 20C9.44773 20 9.00001 19.5523 9.00001 19C9.00001 18.308 9.15848 17.57 9.46082 16.8425C9.38379 16.7931 9.3123 16.7323 9.24889 16.6602C8.42804 15.7262 7.15417 15 5.50001 15C3.84585 15 2.57199 15.7262 1.75114 16.6602C1.38655 17.075 0.754692 17.1157 0.339855 16.7511C-0.0749807 16.3865 -0.115709 15.7547 0.248886 15.3398C0.809035 14.7025 1.51784 14.1364 2.35725 13.7207C1.51989 12.9035 1.00001 11.7625 1.00001 10.5C1.00001 8.01472 3.01473 6 5.50001 6C7.98529 6 10 8.01472 10 10.5C10 11.7625 9.48013 12.9035 8.64278 13.7207C9.36518 14.0785 9.99085 14.5476 10.5083 15.0777C11.152 14.2659 11.9886 13.5382 12.9922 12.9945C11.7822 12.0819 11 10.6323 11 9ZM3.00001 10.5C3.00001 9.11929 4.1193 8 5.50001 8C6.88072 8 8.00001 9.11929 8.00001 10.5C8.00001 11.8807 6.88072 13 5.50001 13C4.1193 13 3.00001 11.8807 3.00001 10.5Z" fill="var(--bctext-0)"></path>
+				</g>
+			</svg>`,
+		);
+		createSidebarButton(
+			"Calendar",
+			domain + "/calendar",
+			sidebarContent,
+			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
+				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+				<g id="SVGRepo_iconCarrier">
+					<path d="M3 9H21M7 3V5M17 3V5M6 12H8M11 12H13M16 12H18M6 15H8M11 15H13M16 15H18M6 18H8M11 18H13M16 18H18M6.2 21H17.8C18.9201 21 19.4802 21 19.908 20.782C20.2843 20.5903 20.5903 20.2843 20.782 19.908C21 19.4802 21 18.9201 21 17.8V8.2C21 7.07989 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V17.8C3 18.9201 3 19.4802 3.21799 19.908C3.40973 20.2843 3.71569 20.5903 4.09202 20.782C4.51984 21 5.07989 21 6.2 21Z" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round"></path>
+				</g>
+			</svg>`,
+		);
+		createSidebarButton(
+			"Inbox",
+			domain + "/conversations",
+			sidebarContent,
+			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
+				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+				<g id="SVGRepo_iconCarrier">
+					<path d="M4 18L9 12M20 18L15 12M3 8L10.225 12.8166C10.8665 13.2443 11.1872 13.4582 11.5339 13.5412C11.8403 13.6147 12.1597 13.6147 12.4661 13.5412C12.8128 13.4582 13.1335 13.2443 13.775 12.8166L21 8M6.2 19H17.8C18.9201 19 19.4802 19 19.908 18.782C20.2843 18.5903 20.5903 18.2843 20.782 17.908C21 17.4802 21 16.9201 21 15.8V8.2C21 7.0799 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V15.8C3 16.9201 3 17.4802 3.21799 17.908C3.40973 18.2843 3.71569 18.5903 4.09202 18.782C4.51984 19 5.07989 19 6.2 19Z" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+				</g>
+			</svg>`,
+		);
+		createSidebarButton(
+			"Studio",
+			domain +
+				"accounts/1/external_tools/69?launch_type=global_navigation",
+			sidebarContent,
+			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
+				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+				<g id="SVGRepo_iconCarrier">
+					<path fill-rule="evenodd" clip-rule="evenodd" d="M6 1C4.34315 1 3 2.34315 3 4V17V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V17V4C21 2.34315 19.6569 1 18 1H6ZM5 20V17C5 16.4477 5.44772 16 6 16H18C18.5523 16 19 16.4477 19 17V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20ZM18 14C18.3506 14 18.6872 14.0602 19 14.1707V4C19 3.44772 18.5523 3 18 3H6C5.44772 3 5 3.44772 5 4V14.1707C5.31278 14.0602 5.64936 14 6 14H18ZM14.5 19.25C15.1904 19.25 15.75 18.6904 15.75 18C15.75 17.3096 15.1904 16.75 14.5 16.75C13.8096 16.75 13.25 17.3096 13.25 18C13.25 18.6904 13.8096 19.25 14.5 19.25Z" fill="var(--bctext-0)"></path>
+				</g>
+			</svg>`,
+		);
+
+		if (mode == "course") {
+			makeElement("h1", sidebarContent, {
+				textContent: "Course Links:",
+				style: "font-size: 20px;color:var(--bctext-0);margin-top:5px;margin-bottom:5px;"
+			})
+			courseLinks.forEach((link) => {
+				createSidebarButton(
+					link.name,
+					domain + link.url,
+					sidebarContent,
+					`<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg0" style="width:20px;height:20px;">
+						<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+						<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+						<g id="SVGRepo_iconCarrier">
+							<path d="M7.05025 1.53553C8.03344 0.552348 9.36692 0 10.7574 0C13.6528 0 16 2.34721 16 5.24264C16 6.63308 15.4477 7.96656 14.4645 8.94975L12.4142 11L11 9.58579L13.0503 7.53553C13.6584 6.92742 14 6.10264 14 5.24264C14 3.45178 12.5482 2 10.7574 2C9.89736 2 9.07258 2.34163 8.46447 2.94975L6.41421 5L5 3.58579L7.05025 1.53553Z" fill="var(--bctext-0)"></path>
+							<path d="M7.53553 13.0503L9.58579 11L11 12.4142L8.94975 14.4645C7.96656 15.4477 6.63308 16 5.24264 16C2.34721 16 0 13.6528 0 10.7574C0 9.36693 0.552347 8.03344 1.53553 7.05025L3.58579 5L5 6.41421L2.94975 8.46447C2.34163 9.07258 2 9.89736 2 10.7574C2 12.5482 3.45178 14 5.24264 14C6.10264 14 6.92742 13.6584 7.53553 13.0503Z" fill="var(--bctext-0)"></path>
+							<path d="M5.70711 11.7071L11.7071 5.70711L10.2929 4.29289L4.29289 10.2929L5.70711 11.707１Z" fill="var(--bctext-0)"></path>
+						</g>
+					</svg>`
+				);
+			});
+		}
+
+
+        let expander = makeElement("div", sidebarList, {
+			style: "display:flex;flex-direction:column;gap:0px;margin-top:auto;width:100%;justify-content:center;align-items:center;cursor:pointer;",
+		});
+        expander.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:30px;height:30px;transition:all .3s ease;">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                    <path d="M20 4V20M4 12H16M16 12L12 8M16 12L12 16" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </g>
+            </svg>
+        `
+		updateSidebar(expanded, sidebarList, expander);
+		// const labels = document.querySelectorAll(".better-sidebar-label");
+		// labels.forEach(label => label.style.display = "none");
+		expander.addEventListener("click", () => {
+			expanded = !expanded;
+            updateSidebar(expanded, sidebarList, expander);
+        })
+    } catch (e) {
+        logError(e);
+    }
+}
+function createSidebarButton(text, url, parent, icon) {
+	let button = makeElement("a", parent, {
+		style: "width:40%;height:30px;cursor:pointer;text-align:center;text-decoration:none;display:inline-flex;justify-content:center;align-items:center;gap:8px;color:var(--bctext-0) !important;font-weight:bold;",
+		className: "bettercanvas-custom-btn better-sidebar-btn",
+		href: url,
+	});
+	button.innerHTML = `${icon ? `${icon}<span class="better-sidebar-label" style="font-size:clamp(10px, 2vw, 18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${text}</span>` : `<span class="better-sidebar-label">${text}</span>`}`;
+}
+function updateSidebar(expanded, sidebarList, expander) {
+	sidebarList.style.width = expanded ? "150px" : "50px";
+	expander.style.transform = expanded ? "rotate(180deg)" : "rotate(0deg)";
+	const labels = document.querySelectorAll(".better-sidebar-label");
+	labels.forEach(label => label.style.display = expanded ? "block" : "none");
+	const buttons = document.querySelectorAll(".better-sidebar-btn");
+	buttons.forEach(label => label.style.width = expanded ? "80%" : "40%");
+}
+function getCourseLinks() {
+	const linkList = document.getElementById("section-tabs");
+	const links = linkList.querySelectorAll("a");
+	const courseLinks = [];
+	links.forEach(link => {
+		const url = new URL(link.href).pathname;
+		courseLinks.push({
+			name: link.textContent.trim(),
+			url: url
+		});
+	})
+	return courseLinks;
 }
 
 let delay;
@@ -946,7 +1577,7 @@ function loadBetterTodo() {
                         listItemContainer.querySelector(".bettercanvas-todo-item").style.textDecoration = "line-through";
                     }
                     let title = makeElement("a", listItem.querySelector(".bettercanvas-todo-item-header"), { "className": "bettercanvas-todoitem-title", "textContent": item.plannable.title });
-                    if (options.todo_colors === true) title.style = "color:" + (options.custom_cards_3?.[item.course_id]?.color || "inherit") + "!important;";
+                    if (options.todo_hide_feedback === true) title.style = "color:" + (options.custom_cards_3?.[item.course_id]?.color || "inherit") + "!important;";
                     makeElement("p", listItem, { "className": "bettercanvas-todoitem-course", "textContent": item.context_name });
                     let format = formatTodoDate(date, item.submissions, hr24);
                     let todoDate = makeElement("p", listItem, { "className": "bettercanvas-todoitem-date", "textContent": format.date });
@@ -1278,13 +1909,19 @@ Dark mode
 */
 
 function generateDarkModeCSS() {
-    const darkmode_css = "#announcementWrapper>div>div,#breadcrumbs,#calendar-app .fc-agendaWeek-view .fc-body,#calendar-app .fc-event,#calendar-app .fc-month-view .fc-body,#calendar-drag-and-drop-container .fc-agendaWeek-view .fc-body,#calendar-drag-and-drop-container .fc-event,#calendar-drag-and-drop-container .fc-month-view .fc-body,#content-wrapper .user_content.not_design_tools h3,#context-list-holder,.bettercanvas-course-credit,#kl_banner,#kl_banner_left,#kl_banner_right,#kl_content_block_0,#kl_custom_block_0,#kl_custom_block_1,#kl_custom_block_2,#kl_readings p,#kl_wrapper_3,#kl_wrapper_3 .ic-Table,#kl_wrapper_3 .table,#kl_wrapper_3.kl_colored_headings #kl_banner #kl_banner_left,#kl_wrapper_3.kl_colored_headings #kl_banner .kl_subtitle,#kl_wrapper_3.kl_colored_headings>div,#kl_wrapper_3.kl_colored_headings_box_left>div,#media_comment_maybe,#minical,#nav-tray-portal>span>span,#questions .group_top,#questions.assessing,#syllabus tr.date.date_passed td,#syllabus tr.date.date_passed th,#undated-events,#undated-events .event,.Day-styles__root,.EmptyDays-styles__root,.Grouping-styles__title,.Grouping-styles__title::after,.PlannerHeader-styles__root,.ac-result-container,.agenda-wrapper,.al-options,.bettercanvas-assignment-container,.bjXfh_daKB,.bjXfh_daKB span,.bottom-reply-with-box,.canvas-rce__skins--root,.ccWIh_bGBk,.closed-for-comments-discussions-v2__wrapper,.conversations .panel,.dCppM_ddES,.discussion-section h4,.discussion-section p,.discussion-section ul,.discussion_entry,.discussions-v2__container-image,.discussions-v2__placeholder,.dpCPB_caGd,.dropdown-menu,.dropdown-menu .divider,.even .slick-cell,.event-details,.fLzZc_bGBk,.form,.form-dialog .form-controls,.header-bar,.ic-Dashboard-header__layout,.ic-Dashboard-header__title,.ic-DashboardCard,.ic-DashboardCard__header_content,.ic-discussion-row,.ic-notification__content,.ig-list .ig-row.ig-row-empty,.instructure_file_link,.item-group-condensed .ig-header,.item-group-condensed .ig-row,.item-group-condensed .item-group-expandable,.item-group-container,.item-group-expandable .emptyMessage,.kl_image_round_white_border,.kl_image_white_border,.kl_mod_text,.message-list .messages>li,.module-sequence-footer .module-sequence-footer-content,.nav-icon,.outcomes-browser .outcomes-content,.outcomes-browser .outcomes-main,.outcomes-browser .outcomes-sidebar,.pages.show .page-title,.pagination ul>li>a,.pagination ul>li>span,.pinned-discussions-v2__wrapper,.popover,.question,.question_editing,.quiz-submission,.rubric_container .rubric_title,.submission-details-comments .comments,.submission-late-pill span,.submission-missing-pill span,.toolbarView .headerBar,.tox .tox-menubar,.tox .tox-split-button .tox-tbtn.tox-split-button__chevron,.tox .tox-toolbar,.tox .tox-toolbar__overflow,.tox .tox-toolbar__primary,.tox:not(.tox-tinymce-inline) .tox-editor-header,.ui-datepicker .ui-datepicker-time,.ui-datepicker .ui-dialog .ui-datepicker-time,.ui-datepicker .ui-dialog .ui-widget-header.ui-datepicker-header,.ui-dialog .ui-datepicker .ui-datepicker-time,.ui-dialog .ui-datepicker .ui-widget-header.ui-datepicker-header,.ui-dialog .ui-dialog-buttonpane,.ui-dialog .ui-dialog-titlebar.ui-widget-header,.ui-kyle-menu,.ui-tabs .ui-tabs-nav .kl_panel_heading.ui-state-default:not(.ui-tabs-active),.ui-tabs .ui-tabs-nav li.ui-state-hover,.ui-tabs .ui-tabs-nav li.ui-tabs-active,.ui-tabs .ui-tabs-nav li:hover,.ui-tabs .ui-tabs-panel,.ui-widget-content,.unpinned-discussions-v2__wrapper,.unpublished_courses_redesign .ic-DashboardCard__box__header,body,code,img.kl_image_round_white_border,img.kl_image_white_border,.bettercanvas-course-percent,pre,table.summary tbody th,table.summary td,.erWSf_bGBk,.fdyuz_bGBk,.eHzxc_bGBk,.dNoYT_bGBk,.fOyUs_fZwI, .fOyUs_kXoP,.tox .tox-edit-area__iframe,.dLyYq_bGBk,.quiz_comment,.discussion-entries .entry,.file-upload-submission,.ftPBL_bGBk:not(.ftPBL_bGiS),.ColorPicker__Container,#right_side .content_box,.jumbotron,.card,.ac-token,.error_box .error_text,table.seas-homepage-table,.with-left-side #left-side, .assignment-student-header,#calendar-list-holder, #other-calendars-list-holder, #undated-events,#left-side,.ic-app-course-menu.with-left-side #left-side.XOwIb_eLeB:not([aria-selected]):not([aria-disabled]):hover, .XOwIb_eLeB[aria-selected],span.fOyUs_bGBk.fOyUs_desw.bDzpk_bGBk.bDzpk_busO.bDzpk_cQFX.bDzpk_bZNM,.bettercanvas-todo-complete-btn,.bettercanvas-card-grade,div[style*='background-color: #fff'],div[style*='background: #fff'],div[style*='background-color: #ffffff'],div[style*='background: #ffffff'],span[style*='background-color: #fff'],span[style*='background: #fff'],#right_side div.comment,.fOyUs_dUgE, .fOyUs_bvKN,.css-1fwux0x-view--block,.css-1v8v5q1-optionItem,#comments-tray,.css-vxe90h-view--inlineBlock,.bettercanvas-todo-actions,.css-sg1rn7-view{background:var(--bcbackground-0)!important}#minical .fc-widget-content{border:1px solid var(--bcbackground-0)!important}#kl_wrapper_3.kl_colored_headings #kl_banner .kl_subtitle{border-top:3px solid var(--bcbackground-0)!important;border-bottom:3px solid var(--bcbackground-0)!important}#submit_file_button,span[style*='background-color: #fbeeb8'],.bettercanvas-todo-label{color:var(--bcbackground-0)!important}.eHQDY_dTxv{stroke:var(--bcbackground-0)!important}#calendar-app .fc-agendaWeek-view .fc-event,#calendar-drag-and-drop-container .fc-agendaWeek-view .fc-event,#context-list .context_list_context:hover,#google_docs_tree li.file:hover,#planner-today-btn,#questions.assessment_results .question .header,#syllabus tr.date.related td,#syllabus tr.date.related th,#syllabus tr.date.selected td,#syllabus tr.date.selected th,.Button,.ac-input-box,.agenda-day.agenda-today,.bettercanvas-assignment-container:hover,.btn,.discussion-reply-box,.discussions-v2__wrapper>span>span>span>span>button>span,.dropdown-menu li>a:focus,.dropdown-menu li>a:hover,.dropdown-submenu:hover>a,.ef-item-row:hover,.extension-linkpreview,.fOyUs_bGBk.fOyUs_desw.bDzpk_bGBk.bDzpk_busO.bDzpk_fZWR.bDzpk_qOas,.fc-event .fc-bg,.hypodivcalc,.ic-Table.ic-Table--striped tbody tr:nth-child(odd),.mini_calendar .day.has_event,.odd .slick-cell,.outcomes-browser .outcomes-toolbar,.question .header,.slick-header-column,.stream-details tr:hover,.stream_header:hover,.submission_attachment button>span,.tox .tox-menu,.tray-with-space-for-global-nav>div>span>form>button>span,.ui-button,.ui-tabs .ui-tabs-nav li.ui-tabs-active,.uneditable-input,.yyQPt_cSXm,div.checkbox,input[type=color],input[type=date],input[type=datetime-local],input[type=datetime],input[type=email],input[type=month],input[type=number],input[type=password],input[type=search],input[type=tel],input[type=text],input[type=time],input[type=url],input[type=week],select,textarea,thead th,ul.outcome-level li.selected a,.eMdva_bgqc,.fQfxa_dqAF.fQfxa_buuG,div.form-column-right label:hover, div.overrides-column-right label:hover,.ic-tokeninput-input,.ic-tokens,.ic-tokeninput-list,.DyQTK_ddES,#gradebook_header,table.seas-homepage-table tr:nth-child(odd),#assignments-student-footer,.muted-notice,.kl_panels_wrapper .ui-accordion-header, .kl_wrapper .ui-accordion-header,.list-view a.active,#calendars-context-list .context_list_context:hover, #other-calendars-context-list .context_list_context:hover,.bettercanvas-todo-complete-btn:hover,.bettercanvas-custom-btn,.bettercanvas-skeleton-text,.bettercanvas-hover-preview,.bettercanvas-gpa-edit-btn,div[style*='background-color: rgb(229, 242, 248)'],div[style*='background-color: rgb(245, 245, 245)'],.css-7naoe-textInp,.css-7naoe-textInput__facade,#assignment_sort_order_select_menu,#course_select_menu,.css-1dn3ise-textInput__facade,.css-1veueey-textInput__facade,.bettercanvas-todo-action:hover{background:var(--bcbackground-1)!important}.ic-DashboardCard__placeholder-svg .ic-DashboardCard__placeholder-animates>*{fill:var(--bcbackground-1)!important}.bettercanvas-hover-preview::after{background:linear-gradient(0deg, var(--bcbackground-1) 50%, transparent)}#calendar-app .fc-month-view .fc-today,#calendar-drag-and-drop-container .fc-month-view .fc-today,#content-wrapper .user_content.not_design_tools table tbody tr:nth-child(even) td,#kl_content_block_0 h3:nth-child(1) i,#kl_custom_block_0 h3:nth-child(1) i,#kl_custom_block_1 h3:nth-child(1) i,#kl_custom_block_2 h3:nth-child(1) i,.ajas-search-widget__btn--search,.alert-info,.discussion-section.alert .discussion-points,.discussion-section.alert .discussion-title,.extension-linkpreview:hover,.ic-Table.ic-Table--hover-row tbody tr.ic-Table__row--bg-alert:hover,.ic-Table.ic-Table--hover-row tbody tr.ic-Table__row--bg-danger:hover,.ic-Table.ic-Table--hover-row tbody tr.ic-Table__row--bg-neutral:hover,.ic-Table.ic-Table--hover-row tbody tr.ic-Table__row--bg-success:hover,.ic-Table.ic-Table--hover-row tbody tr:hover,.ic-flash-error,.ic-flash-info,.ic-flash-success,.ic-flash-warning,.ig-list .ig-row:hover,.context_module_item.context_module_item_hover,.tox .tox-mbtn--active,.tox .tox-mbtn:hover:not(:disabled):not(.tox-mbtn--active),.tox .tox-split-button .tox-tbtn.tox-split-button__chevron:hover,.tox .tox-split-button:hover,.tox .tox-tbtn.tox-tbtn--enabled:hover,.tox .tox-tbtn:hover,.ui-menu .ui-menu-item .ui-progressbar a.ui-widget-header,.ui-menu .ui-menu-item a.ui-state-active,.ui-menu .ui-menu-item a.ui-state-focus,.ui-menu .ui-menu-item a.ui-state-hover,.ui-progressbar .ui-menu .ui-menu-item a.ui-widget-header,::-webkit-scrollbar-track,div.checkbox:hover,.gradebook-cell.grayed-out,.baylor-table tr:nth-of-type(2n + 1){background:var(--bcbuttons)!important}#kl_content_block_0 h3:nth-child(1),#kl_content_block_0 h3:nth-child(1) i,#kl_custom_block_0 h3:nth-child(1),#kl_custom_block_0 h3:nth-child(1) i,#kl_custom_block_1 h3:nth-child(1),#kl_custom_block_1 h3:nth-child(1) i,#kl_custom_block_2 h3:nth-child(1),#kl_custom_block_2 h3:nth-child(1) i,#kl_wrapper_3.kl_colored_headings #kl_modules h3,#kl_wrapper_3.kl_colored_headings #kl_modules h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings>div>h3:not(.ui-state-default),#kl_wrapper_3.kl_colored_headings>div>h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings_box_left #kl_modules h3,#kl_wrapper_3.kl_colored_headings_box_left #kl_modules h3 i,#kl_wrapper_3.kl_colored_headings_box_left>div>h3 i,#kl_wrapper_3.kl_colored_headings_box_left>div>h3:not(.ui-state-default),#kl_wrapper_3.kl_emta h3:not(.ui-state-default),.ic-app-header__menu-list-link:focus,.kl_flex_column h4,.tox .tox-collection--list .tox-collection__item--enabled,ul.outcome-level li:focus,ul.outcome-level li:hover{background-color:var(--bcbuttons)!important}.eHQDY_dTxv{stroke:var(--bcbuttons)}.no-touch .ic-DashboardCard:hover{box-shadow:0 4px 10px rgb(0 0 0)!important}#calendar-drag-and-drop-container .fc-row .fc-content-skeleton td,#calendar-drag-and-drop-container .fc-row .fc-helper-skeleton td,.bettercanvas-course-credit,#kl_content_block_0,#kl_custom_block_0,#kl_custom_block_1,#kl_custom_block_2,#kl_wrapper_3.kl_colored_headings>div,#kl_wrapper_3.kl_colored_headings_box_left>div,#minical,#questions .group_bottom,#questions .group_top,#quiz_edit_wrapper #quiz_tabs #quiz_options_form .option-group,#quiz_show .description.teacher-version,.Button,.Container__DueDateRow,.CourseImageSelector,.ac-input-box,.ac-result-container,.ajas-search-widget__form input,.btn,.calendar .fc-row .fc-content-skeleton td,.calendar .fc-row .fc-helper-skeleton td,.closed-for-comments-discussions-v2__wrapper,.discussion-entries .entry,.discussion-reply-box,.discussion_entry>.discussion-entry-reply-area,.discussions-v2__wrapper>span>span>span>span>button>span,.form-actions,.ic-flash-error,.ic-flash-info,.ic-flash-success,.ic-flash-warning,.ig-list .ig-row,.item-group-condensed .ig-header,.item-group-condensed .item-group-expandable,.mini-cal-header,.mini_calendar,.outcomes-browser .outcomes-main,.outcomes-browser .outcomes-toolbar,.panel-border,.pinned-discussions-v2__wrapper,.question,.question .header,.question_editing,.quiz-submission,.rubric_container td,.rubric_container th,.submission-details-container,.submission_attachment button>span,.table-bordered,.toolbarView .headerBar,.tray-with-space-for-global-nav>div>span>form>button>span,.ui-button,.uneditable-input,.unpinned-discussions-v2__wrapper,form.question_form .form_answers .answer,.bettercanvas-course-percent,input[type=color],input[type=date],input[type=datetime-local],input[type=datetime],input[type=email],input[type=month],input[type=number],input[type=password],input[type=search],input[type=tel],input[type=text],input[type=time],input[type=url],input[type=week],select,textarea,.fdyuz_bGBk,.tox .tox-edit-area,.quiz_comment,.ic-tokens,.ic-tokeninput-list,.DyQTK_ddES,.ac-token,.muted-notice,.ui-state-default, .ui-widget-header .ui-state-default,.ui-widget-content,.bettercanvas-custom-btn,.bettercanvas-gpa-edit-btn,.css-26xxi8-view--block,.css-9fqfm7-view--block,.bettercanvas-todo-actions{border:1px solid var(--bcborders)!important}#content-wrapper .user_content.not_design_tools table td,#content-wrapper .user_content.not_design_tools table th,table.seas-homepage-table,.avatar,.css-7naoe-textInput__facade,.css-1dn3ise-textInput__facade{border:2px solid var(--bcborders)!important}#course_select_menu,#assignment_sort_order_select_menu,#TextInput_0{border:none!important}#assignment_show .student-assignment-overview,#grades_summary th.title,#kl_wrapper_3.kl_colored_headings h4,#kl_wrapper_3.kl_colored_headings_box_left h4,#minical .fc-toolbar,#quiz_show ul#quiz_student_details,#right-side .h2,#right-side h2,.CompletedItemsFacade-styles__root,.Container__DueDateRow-item,.EmptyDays-styles__root,.PlannerItem-styles__root,.agenda-day,.blnAQ_kWwi,.container_0 .slick-cell,.container_1 .slick-cell,.conversations .panel,.course_details td,.dropdown-menu .divider,.ef-directory-header,.ef-header,.event-details-content,.event-details-footer,.event-details-header,.header-bar,.hr,.ic-Action-header.ic-Action-header--before-item-groups,.ic-Dashboard-header__layout,.ic-Table td,.ic-Table th,.ic-app-nav-toggle-and-crumbs,.item-group-condensed .ig-row,.message-detail.conversations__message-detail .message-content>li,.message-detail.conversations__message-detail .message-header,.message-detail.span8 .message-content>li,.message-detail.span8 .message-header,.message-list .messages>li,.nav_list li.disabled,.page-action-list a,.page-header,.quiz-header,.recent-activity-header,.recent_activity>li,.slick-header-column.ui-state-default,.submission-details-header__heading-and-grades,.ui-datepicker .ui-dialog .ui-widget-header.ui-datepicker-header,.ui-dialog .ui-datepicker .ui-widget-header.ui-datepicker-header,.ui-dialog .ui-dialog-titlebar.ui-widget-header,.unpublished_courses_redesign .ic-DashboardCard__box__header,legend,table.summary caption,table.summary tbody th,table.summary td,table.summary thead th,.communication_message,.file-upload-submission,.submission-details-header__heading-and-grades,#right_side .content_box,.assignment-student-header,.bettercanvas-gpa-course{border-bottom:1px solid var(--bcborders)!important}#planner-today-btn,.al-options,.border,.dpCPB_caGd,.fc-unthemed .fc-divider,.fc-unthemed .fc-popover,.fc-unthemed .fc-row,.fc-unthemed tbody,.fc-unthemed td,.fc-unthemed th,.fc-unthemed thead,.qBMHb_cSXm,.tox .tox-collection--list .tox-collection__group,.tox .tox-menu,.ui-tabs .ui-tabs-nav li.ui-tabs-active,.ui-tabs .ui-tabs-nav li.ui-tabs-active.ui-state-hover,.ui-tabs .ui-tabs-nav li.ui-tabs-active:hover,.ui-tabs .ui-tabs-nav li:hover,.ui-tabs .ui-tabs-panel,.fOyUs_dsNY, .fOyUs_tIxX,.fQfxa_dqAF.fQfxa_buuG,.question .question_comment.question_neutral_comment,#assignments-student-footer,.MyTable,#inbox-conversation-holder *,.css-1vqfmz1-view{border-color:var(--bcborders)!important}.discussion-section.message_wrapper table{border:4px solid var(--bcborders)!important}.nav_list li.navitem{border:solid var(--bcborders)!important;border-width:0 1px 1px!important}#questions .assessment_question_bank,#questions .insufficient_count_warning,#questions .question_holder.group,.container_0 .slick-cell,.container_1 .slick-cell,.ef-main .ef-folder-content,.rubric_container .rubric_title,.slick-header-column.ui-state-default,.topic .entry-content,body.responsive_awareness .message-list-scroller,ul.outcome-level{border-right:1px solid var(--bcborders)!important}#questions .assessment_question_bank,#questions .insufficient_count_warning,#questions .question_holder.group,.container_0 .slick-cell:first-child,.container_0 .slick-header-column:first-child,.outcomes-browser .outcomes-content,.rubric_container .rubric_title,.table-bordered td,.table-bordered th,.topic .entry-content,.submission-details-comments .comments{border-left:1px solid var(--bcborders)!important}#assignment_show .student-assignment-overview,#grades_summary tr.final_grade,#quiz_show ul#quiz_student_details,.discussion-entries .entry .entry,.ef-footer,.entry>.bottom-reply-with-box .discussion-entry-reply-area,.form-dialog .form-controls,.ic-app-footer,.module-sequence-footer .module-sequence-footer-content,.question.matching_question .answer,.question.multiple_answers_question .answer,.question.multiple_choice_question .answer,.question.true_false_question .answer,.rubric_container .rubric_title,.slick-header-column.ui-state-default,.table td,.table th,.dNoYT_bGBk{border-top:1px solid var(--bcborders)!important}.discussions-v2__container-image{border:.125rem dashed var(--bcborders)!important}.Button--active.ui-button,.Button.Button--active,.Button.active,.active.ui-button,.btn.Button--active,.btn.active,.btn.ui-button.ui-state-active,.message-list .message-count,.mini_calendar .day.today,.ui-button.ui-state-active,.ui-button.ui-state-active.ui-state-hover,.ui-button.ui-state-active:hover,.ui-progressbar .btn.ui-button.ui-widget-header,.ui-progressbar .ui-button.ui-widget-header,::-webkit-scrollbar-thumb,.ic-unread-badge__total-count,#calendar-app .fc-month-view .fc-today{background:var(--bcbackground-2)!important}.discussion-entries .entry .entry,.kl_image_white_border{border:0!important}.ac-result-wrapper:before{border-bottom:10px solid var(--bcborders)}.eIQkd_bGBk,.ui-tabs .ui-tabs-nav,.eHzxc_bGBk,.quiz_comment:after,.quiz_comment:before{border-bottom-color:var(--bcborders)!important}.ic-item-row{box-shadow:0 -1px var(--bcborders),inset 0 -1px var(--bcborders)!important}#GradeSummarySelectMenuGroup span,#kl_content_block_0 h3:nth-child(1),#kl_content_block_0 h3:nth-child(1) i,#kl_custom_block_0 h3:nth-child(1),#kl_custom_block_0 h3:nth-child(1) i,#kl_custom_block_1 h3:nth-child(1),#kl_custom_block_1 h3:nth-child(1) i,#kl_custom_block_2 h3:nth-child(1),#kl_custom_block_2 h3:nth-child(1) i,#kl_wrapper_3.kl_colored_headings #kl_modules h3,#kl_wrapper_3.kl_colored_headings #kl_modules h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings>div>h3:not(.ui-state-default),#kl_wrapper_3.kl_colored_headings>div>h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings_box_left #kl_modules h3,#kl_wrapper_3.kl_colored_headings_box_left #kl_modules h3 i,#kl_wrapper_3.kl_colored_headings_box_left>div>h3 i,#kl_wrapper_3.kl_colored_headings_box_left>div>h3:not(.ui-state-default),#kl_wrapper_3.kl_emta h3:not(.ui-state-default),.bettercanvas-card-grade,.bettercanvas-card-header,.discussion-fyi,.ic-DashboardCard__action-badge,.ic-app-header__menu-list-item.ic-app-header__menu-list-item--active .menu-item__text,.ig-list .ig-row,.kl_flex_column h4,.menu-item__badge,.mini_calendar .day.other_month,.ui-tabs .ui-tabs-nav li.ui-tabs-active a,.bettercanvas-course-percent,.bettercanvas-todo-container,.bettercanvas-todo-container:hover,.MlJlv_ebWM,.bettercanvas-todo-item,.bettercanvas-todo-item:hover,.bettercanvas-hover-preview,.baylorMainContainer,.baylor-table td,.fOyUs_dUgE, .fOyUs_bvKN,.muted,h1 small,h2 small,h3 small,h4 small,h5 small,h6 small,blockquote small,.css-1v8v5q1-optionItem,.Button,button,.btn,h1,h2,h3,h4,h5,h6,#tinymce,.PlannerItem-styles__type > span,.bettercanvas-todo-actions{color:var(--bctext-0)!important}.ic-app-header__menu-list-item.ic-app-header__menu-list-item--active svg,.ToDoSidebarItem__Icon,.bettercanvas-todo-svg{fill:var(--bctext-0)!important}.ic-avatar{border:2px solid var(--bctext-0)!important}#breadcrumbs>ul>li+li:last-of-type a,#calendar-app .fc-agendaWeek-view .fc-axis,#calendar-app .fc-agendaWeek-view .fc-widget-header,#calendar-app .fc-month-view .fc-widget-header,#calendar-drag-and-drop-container .fc-agendaWeek-view .fc-axis,#calendar-drag-and-drop-container .fc-agendaWeek-view .fc-widget-header,#calendar-drag-and-drop-container .fc-month-view .fc-widget-header,#content-wrapper .user_content.not_design_tools h3,.bettercanvas-course-credit,#kl_banner,#kl_banner h2,#kl_banner_left,#kl_banner_right,#kl_custom_block_0,#kl_readings p,#kl_wrapper_3.kl_colored_headings #kl_banner #kl_banner_left,#kl_wrapper_3.kl_colored_headings #kl_banner .kl_subtitle,#kl_wrapper_3.kl_colored_headings #kl_modules h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings h4,#kl_wrapper_3.kl_colored_headings>div>h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings_box_left #kl_modules h3 i,#kl_wrapper_3.kl_colored_headings_box_left h4,#kl_wrapper_3.kl_colored_headings_box_left>div>h3 i,#kl_wrapper_3.kl_emta,#minical .fc-toolbar .h2,#minical .fc-toolbar h2,#minical .fc-widget-content,#nav-tray-portal>span>span>div>div>.navigation-tray-container.courses-tray>.tray-with-space-for-global-nav>div>ul>li>div,#right-side .details .header,#right-side .right-side-list li em,#right-side .right-side-list li p,.Day-styles__root h2,.EmptyDays-styles__root,.HwBsD_blJt,.HwBsD_fqzO,.MlJlv_dnnz,.PlannerItem-styles__due,.PlannerItem-styles__score,.ToDoSidebarItem__Info,.ToDoSidebarItem__Info li,.ac-input-box,.accessible-toggler,.bettercanvas-assignment-container,.bettercanvas-assignment-container:hover,.bjXfh_daKB,.bjXfh_daKB span,.cWmNi_bGBk,.ccWIh_bGBk,.close,.comment_list .comment,.discussion-points,.discussion-pubdate,.discussion-rate-action,.discussion-reply-action,.discussion-section h4,.discussion-section p,.discussion-section ul,.discussion-tododate,.discussions-v2__container-image>span>div,.dropdown-menu li>a,.ef-plain-link,.ef-plain-link:hover,.enRcg_bGBk.enRcg_qFsi,.entry-content span,.esvoZ_drOs,.event-details-timestring,.extension-ac a:hover,.extension-linkpreview,.fCrpb_egrg,.fCrpb_egrg.fCrpb_fVUh,.fNHEA_blJt,.fQfxa_bCUx.fQfxa_buuG,.fc-agendaWeek-view .fc-event-container a[class*=group_] .fc-content .fc-time,.fc-event,.fc-event:hover,.fwfoD_fsuY,.header-row a.sort-field-active i,.hypodivcalc,.ic-Dashboard-header__title,.ic-DashboardCard__header-subtitle,.ic-DashboardCard__header-term,.ic-discussion-content-container,.ig-header .name,.ig-list .ig-row a.ig-title,.ig-type-icon,.item-group-condensed .ig-header,.item-group-expandable .emptyMessage,.jpyTq_bGBk,.kl_mod_text,.kl_readings span,.list-view a.active,.message-detail.conversations__message-detail .no-messages,.message-detail.span8 .no-messages,.message-list .author,.message-list .subject,.message.user_content div,.mini-cal-header,.mini_calendar .day,.nav-icon,.nav_list li.navitem,.ofhgV_ddES,.pages.show .page-title,.planner-day,.standalone-icon:before,.submission_attachment button>span,.tox .tox-collection__item,.tox .tox-insert-table-picker__label,.tray-with-space-for-global-nav>div>span>form>button>span,.tree i[class*=icon-],.tree i[class^=icon-],.ui-button,.ui-state-default,.ui-tabs .ui-tabs-nav li a,.ui-widget .fc-event,.ui-widget-content,.ui-widget-header .ui-state-default,.uneditable-input,.user_content.enhanced,.user_content,.user_content.enhanced p,body,code,input.enRcg_bGBk[type].enRcg_qFsi,input[type=color],input[type=date],input[type=datetime-local],input[type=datetime],input[type=email],input[type=month],input[type=number],input[type=password],input[type=search],input[type=tel],input[type=text],input[type=time],input[type=url],input[type=week],label.fCrpb_egrg,legend,pre,select,textarea,ul#question_list li i, .enRcg_bGBk.enRcg_bLsb, input.enRcg_bGBk[type].enRcg_bLsb,.erWSf_bGBk,.faJyW_blJt,.eMdva_bgqc,#right-side p.email_channel,.dpCPB_caGd,.XOwIb_ddES,.fdyuz_bGBk,.fOyUs_fZwI, .fOyUs_kXoP,.fQfxa_dqAF.fQfxa_buuG,.communication_message .header .header_title .title,.communication_message .header .header_title .sub_title,.ic-tokens,ic-tokeninput-input,.ftPBL_cuDj,.dUOHu_eCSh,.blnAQ_eCSh,#gradebook_header,.bettercanvas-assignment-link,.bettercanvas-assignment-link:hover,.jumbotron,.card,.ac-token,span[style='color: #000000;'],.bettercanvas-gpa-edit-btn{color:var(--bctext-1)!important}.list-view a.active{border-left:2px solid var(--bclinks)!important}.ToDoSidebarItem svg,.discussions-v2__wrapper>span>span>span>span>button>span>span>svg,.ic-DashboardCard__action-layout svg,.tox .tox-split-button__chevron svg,.tox .tox-tbtn svg,.tox .tox-tbtn svg g,.tox .tox-tbtn svg path{fill:var(--bctext-1)!important}.caret{border-top:4px solid var(--bctext-1)!important}#last_saved_indicator,#minical .fc-other-month,#nav_disabled_list li.navitem,.ToDoSidebarItem__Info>span,.extension-aldue,.ic-item-row__meta-content-timestamp p,.ig-list .icon-drag-handle,.ig-list .ig-row .ig-empty-msg,.message-detail.conversations__message-detail .date,.message-detail.conversations__message-detail .user-info .context,.message-detail.span8 .date,.message-detail.span8 .user-info .context,.message-list .summary,.profile_table .data_description,.question .header .question_points_holder,.student_assignment .context,.tox .tox-collection__item-accessory,.yyQPt_blJt,ul#question_list.read_only li.seen,ul#question_list li.current_question,.css-1sr6v3o-text{color:var(--bctext-2)!important}#content-wrapper .user_content.not_design_tools a,#media_comment_maybe,#nav-tray-portal a,.ToDoSidebarItem__Title a,.message-list .date,a,a:focus,a:hover,.fQfxa_bCUx.fQfxa_eCSh,.fake-link,.no-touch .ic-DashboardCard__action:hover,.enRcg_bGBk.enRcg_fpfC, input.enRcg_bGBk[type].enRcg_fpfC{color:var(--bclinks)!important}#minical .fc-bg .fc-state-highlight,#submit_file_button,.StickyButton-styles__root,.ic-DashboardCard__action-badge,.menu-item__badge,ul.outcome-level li.selected a::before,.eMdva_pypk .eMdva_dnnz,.ic-notification__icon,.fQfxa_dqAF.fQfxa_eCSh,.recent_activity>li .unread-count,.recent_activity>li .unread.message-list .read-state:before,.eMdva_pypk .eMdva_dnnz,.tox .tox-collection--list .tox-collection__item--active:not(.tox-collection__item--state-disabled),.nav-badge,.message-list .read-state:before,.ic-unread-badge,.cECYn_bXiG,.unread-grade,.bettercanvas-todo-label{background:var(--bclinks)!important}.eHQDY_ddES .eHQDY_eWAY{stroke:var(--bclinks)!important}.message-list .messages>li:hover{box-shadow:inset -4px 0 0 var(--bclinks)!important}.agenda-event__item-container:focus,.agenda-event__item-container:hover{box-shadow:inset 3px 0 0 var(--bclinks)}#calendar-app .fc-agendaWeek-view .fc-day-grid .fc-today,#calendar-drag-and-drop-container .fc-agendaWeek-view .fc-day-grid .fc-today{box-shadow:.5px -6px 0 0 var(--bclinks)}.message-list .read-state.read:before{box-shadow:0 0 0 1px var(--bclinks)}#minical .event::after{border:1px solid var(--bclinks)}.ic-notification{border:2px solid var(--bclinks)!important}.eMdva_pypk,.tox .tox-edit-area.active, .tox .tox-edit-area.active iframe,.emSEn_QUBp:hover{border-color:var(--bclinks)!important}.eHQDY_ddES .eHQDY_eWAY{stroke:var(--bclinks)}.ui-dialog .ui-dialog-titlebar-close.ui-state-hover, .ui-dialog .ui-dialog-titlebar-close.ui-state-focus{box-shadow:0 0 0 2px var(--bclinks)}select.ic-Input:focus, textarea.ic-Input:focus, input[type=text].ic-Input:focus, input[type=password].ic-Input:focus, input[type=datetime].ic-Input:focus, input[type=datetime-local].ic-Input:focus, input[type=date].ic-Input:focus, input[type=month].ic-Input:focus, input[type=time].ic-Input:focus, input[type=week].ic-Input:focus, input[type=number].ic-Input:focus, input[type=email].ic-Input:focus, input[type=url].ic-Input:focus, input[type=search].ic-Input:focus, input[type=tel].ic-Input:focus, input[type=color].ic-Input:focus, .uneditable-input.ic-Input:focus{outline-color:var(--bclinks)}.discussion-section.message_wrapper table{border:4px solid red!important}.extension-linkpreview,.hypodivcalc,.kl_shadow_2,.kl_shadow_b2,.tox .tox-split-button:hover{box-shadow:none!important}#kl_wrapper_3.kl_colored_headings #kl_modules h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings>div>h3:not(.ui-state-default) i,#kl_wrapper_3.kl_colored_headings_box_left #kl_modules h3 i,#kl_wrapper_3.kl_colored_headings_box_left>div>h3 i{border:none!important}.extension-aldue:hover,.ic-DashboardCard,.navigation-tray-container,.bettercanvas-gpa-card{box-shadow:0 2px 5px #00000080!important}::-webkit-scrollbar{width:15px}.ui-datepicker .ui-datepicker-time,.ui-datepicker .ui-dialog .ui-datepicker-time,.ui-dialog .ui-datepicker .ui-datepicker-time,.ui-dialog .ui-dialog-buttonpane,hr{border-top:none!important}#right-side .shared-space h2{border-bottom-style:none!important}#kl_content_block_0 h3:nth-child(1) i,#kl_custom_block_0 h3:nth-child(1) i,#kl_custom_block_1 h3:nth-child(1) i,#kl_custom_block_2 h3:nth-child(1) i{border:0!important}.ig-header .name{text-shadow:none!important}#right-side .events_list .event-details:after,#right-side .events_list .todo-details:after,#right-side .to-do-list .event-details:after,#right-side .to-do-list .todo-details:after{display:none!important},.muted-notice{background-image:none!important}.message-list .read-state.read:before{background:none!important}.ic-DashboardCard__header-button,.ic-app-header__secondary-navigation{background:none!important;border:none!important}.published-status.published .icon-publish::before{color:#0b874b!important}.ic-app-header{background:var(--bcsidebar)!important}.ic-app-header__menu-list-item.ic-app-header__menu-list-item--active .ic-app-header__menu-list-link, .ic-app-header__menu-list-link:hover{background:#0000004f!important}.ic-app-header__logomark-container{background:none!important}.ic-app-header__menu-list-link svg,.ic-app-header__menu-list-item.ic-app-header__menu-list-item--active svg{fill:var(--bcsidebar-text)!important}.menu-item-icon-container,.ic-app-header__menu-list-link .menu-item__text,.ic-app-header__menu-list-item.ic-app-header__menu-list-item--active .menu-item__text{color:var(--bcsidebar-text)!important} .ic-DashboardCard,.ic-DashboardCard__header_content,.bettercanvas-assignment-container,.recent_feedback .event-details{background:none!important} ";
-    let css = (options.device_dark === true ? "@media (prefers-color-scheme: dark) {" : "") + ":root{";
-    Object.keys(options.dark_preset).forEach(key => {
-        css += "--bc" + key + ":" + options.dark_preset[key] + ";";
-    });
-    css += "}" + darkmode_css + (options.device_dark === true ? "}" : "");
-    return css;
+    let css =
+		(options.device_dark === true
+			? "@media (prefers-color-scheme: dark) {\n"
+			: "") + ":root{\n";
+	if (options.dark_preset) {
+		Object.keys(options.dark_preset).forEach((key) => {
+			css += "    --bc" + key + ": " + options.dark_preset[key] + ";\n";
+		});
+	}
+	css += "}\n\n";
+	css += DARKMODE_CSS;
+	css += options.device_dark === true ? "\n}" : "";
+	return css;
 }
 
 let darkStyleInserted = false;
@@ -1344,27 +1981,27 @@ function autoDarkModeCheck() {
     }
 }
 
-async function ScheduledReminderCheck() {
-	let date = new Date();
-	let currentHour = date.getHours();
-	let currentMinute = date.getMinutes();
-	if (options.scheduledReminderTime) {
-		let [hour, minute] = options.scheduledReminderTime.split(":");
-		if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
-			const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
-			container.style.display = "flex";
-			container.textContent = "";
-			const storage = await chrome.storage.sync.get("reminders");
-			const now = (new Date()).getTime();
-			storage["reminders"].forEach(reminder => {
-				if (reminder.d >= now) {
-					createReminder(reminder, container);
-				}
-			});
-		}
-	}
+// async function ScheduledReminderCheck() {
+// 	let date = new Date();
+// 	let currentHour = date.getHours();
+// 	let currentMinute = date.getMinutes();
+// 	if (options.scheduledReminderTime) {
+// 		let [hour, minute] = options.scheduledReminderTime.split(":");
+// 		if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
+// 			const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+// 			container.style.display = "flex";
+// 			container.textContent = "";
+// 			const storage = await chrome.storage.sync.get("reminders");
+// 			const now = (new Date()).getTime();
+// 			storage["reminders"].forEach(reminder => {
+// 				if (reminder.d >= now) {
+// 					createReminder(reminder, container);
+// 				}
+// 			});
+// 		}
+// 	}
 
-}
+// }
 
 function toggleAutoDarkMode() {
     clearInterval(timeCheck);
@@ -1373,12 +2010,12 @@ function toggleAutoDarkMode() {
     timeCheck = setInterval(autoDarkModeCheck, 60000);
 }
 
-function toggleScheduledReminders() {
-	clearInterval(reminderCheck);
-	if (options.scheduled_reminders === false) return; //TODO: add it to the options thing
-	ScheduledReminderCheck();
-	reminderCheck = setInterval(ScheduledReminderCheck, 60000);
-}
+// function toggleScheduledReminders() {
+// 	clearInterval(reminderCheck);
+// 	if (options.scheduled_reminders === false) return; //TODO: add it to the options thing
+// 	ScheduledReminderCheck();
+// 	reminderCheck = setInterval(ScheduledReminderCheck, 60000);
+// }
 
 let iframeObserver;
 function runiframeChecker() {
@@ -2106,7 +2743,7 @@ function showUpdateMsg() {
         return;
     }
 
-    // first creation 
+    // first creation
     div = makeElement("div", el, { "id": "bettercanvas-update-msg" });
     makeElement("p", div, { "textContent": options.update_msg });
     const close = makeElement("button", div, { "id": "bettercanvas-update-close", "textContent": "Close" });
@@ -2183,7 +2820,7 @@ function getGrades() {
 }
 
 function getColors() {
-    if (options.tab_icons || options.todo_colors) {
+    if (options.tab_icons) {
         let colors = getData(`${domain}/api/v1/users/self/colors`);
         colors.then(data => {
             let cards = options.custom_cards_3;
@@ -2222,12 +2859,16 @@ function getApiData() {
 }
 
 
-function makeElement(element, location, options) {
+function makeElement(element, location, options, prepend = false) {
     let creation = document.createElement(element);
     Object.keys(options).forEach(key => {
         creation[key] = options[key];
     });
-    location.appendChild(creation);
+    if (prepend) {
+        location.insertBefore(creation, location.firstChild);
+    } else {
+        location.appendChild(creation);
+    }
     return creation
 }
 

@@ -1,10 +1,11 @@
-const syncedSwitches = ['remind', 'tab_icons', 'hide_feedback', 'dark_mode', 'remlogo', 'full_width', 'auto_dark', 'assignments_due', 'gpa_calc', 'gradient_cards', 'disable_color_overlay', 'dashboard_grades', 'dashboard_notes', 'better_todo', 'condensed_cards'];
+const syncedSwitches = ['remind', 'tab_icons', 'hide_feedback', 'dark_mode', 'remlogo', 'full_width', 'auto_dark', 'assignments_due', 'gpa_calc', 'gradient_cards', 'disable_color_overlay', 'dashboard_grades', 'dashboard_notes', 'better_todo', 'better_sidebar', 'condensed_cards'];
 const syncedSubOptions = [
-	"todo_colors",
+	"todo_hide_feedback",
+	"todo_full_height",
 	"device_dark",
 	"relative_dues",
 	"card_overdues",
-	"todo_overdues",
+	// "todo_overdues",
 	"gpa_calc_prepend",
 	"auto_dark",
 	"auto_dark_start",
@@ -12,12 +13,13 @@ const syncedSubOptions = [
 	"num_assignments",
 	"assignment_date_format",
 	"todo_hr24",
+	"todo_separate_scrollbar",
 	"grade_hover",
-	"hide_completed",
+	// "hide_completed",
 	"num_todo_items",
 	"hover_preview",
-	"scheduledReminder",
-	"scheduledReminderTime",
+	// "scheduledReminder",
+	// "scheduledReminderTime",
 	"customCardStyles",
 	"imageSize",
 	"cardRoundness",
@@ -67,7 +69,9 @@ const defaultOptions = {
         "dashboard_notes": false,
         "dashboard_notes_text": "",
         "better_todo": false,
+        "better_sidebar": true,
         "todo_hr24": false,
+		"todo_separate_scrollbar": false,
         "condensed_cards": false,
         "custom_cards": {},
         "custom_cards_2": {},
@@ -75,8 +79,8 @@ const defaultOptions = {
         "custom_assignments": [],
         "custom_assignments_overflow": ["custom_assignments"],
         "grade_hover": false,
-        "hide_completed": false,
-        "num_todo_items": 4,
+        // "hide_completed": false,
+        "num_todo_items": 10,
         "custom_font": { "link": "", "family": "" },
         "hover_preview": true,
         "full_width": null,
@@ -96,22 +100,23 @@ const defaultOptions = {
             "D-": { "cutoff": 60, "gpa": .7 },
             "F": { "cutoff": 0, "gpa": 0 }
         },
-        "todo_overdues": false,
+        // "todo_overdues": false,
         "card_overdues": false,
         "relative_dues": false,
         "hide_feedback": false,
         "dark_mode_fix": [],
         "assignment_states": {},
         "tab_icons": false,
-        "todo_colors": false,
+        "todo_hide_feedback": false,
+		"todo_full_height": false,
         "device_dark": false,
         "cumulative_gpa": { "name": "Cumulative GPA", "hidden": false, "weight": "dnc", "credits": 999, "gr": 3.21 },
-        "show_updates": false,
+        // "show_updates": false,
         "card_method_date": false,
         "card_method_dashboard": true,
         "card_limit": 25,
-        "scheduledReminder": false,
-        "scheduledReminderTime": { "hour": "09", "minute": "00" },
+        // "scheduledReminder": false,
+        // "scheduledReminderTime": { "hour": "09", "minute": "00" },
         "imageSize": 100,
         "cardRoundness": 5,
         "cardSpacing": 0,
@@ -196,14 +201,14 @@ function setupAutoDarkInput(initial, time) {
     });
 }
 
-function setupScheduledReminderInput(initial) {
-    let el = document.querySelector('#scheduledReminderTime');
-    el.value = initial.hour + ":" + initial.minute;
-    el.addEventListener('change', function () {
-        let timeinput = { "hour": this.value.split(':')[0], "minute": this.value.split(':')[1] };
-        chrome.storage.sync.set({ scheduledReminderTime: timeinput });
-    });
-}
+// function setupScheduledReminderInput(initial) {
+//     let el = document.querySelector('#scheduledReminderTime');
+//     el.value = initial.hour + ":" + initial.minute;
+//     el.addEventListener('change', function () {
+//         let timeinput = { "hour": this.value.split(':')[0], "minute": this.value.split(':')[1] };
+//         chrome.storage.sync.set({ scheduledReminderTime: timeinput });
+//     });
+// }
 
 function setupCardLimitSlider(initial) {
     let el = document.querySelector("#card_limit");
@@ -277,35 +282,118 @@ function setupCustomBackgroundLink(initial) {
 function setup() {
 
     const menu = {
-        "switches": syncedSwitches,
-        "checkboxes": ['browser_show_likes', 'gpa_calc_weighted', 'gpa_calc_cumulative', /*'card_method_date',*/ 'show_updates', 'todo_colors', 'device_dark', 'relative_dues', 'card_overdues', 'todo_overdues', 'gpa_calc_prepend', 'auto_dark', 'assignment_date_format', 'todo_hr24', 'grade_hover', 'hide_completed', 'hover_preview', 'scheduledReminder', 'customCardStyles'],
-        "tabs": {
-            "advanced-settings": { "setup": displayAdvancedCards, "tab": ".advanced" },
-            "gpa-bounds-btn": { "setup": displayGPABounds, "tab": ".gpa-bounds-container" },
-            "custom-font-btn": { "setup": displayCustomFont, "tab": ".custom-font-container" },
-            "card-colors-btn": { "setup": null, "tab": ".card-colors-container" },
-            "customize-dark-btn": { "setup": displayDarkModeFixUrls, "tab": ".customize-dark" },
-            "import-export-btn": { "setup": displayThemeList, "tab": ".import-export" },
-            "report-issue-btn": { "setup": displayErrors, "tab": ".report-issue-container" },
-            "updates-btn": { "setup": null, "tab": ".updates-container" }
-        },
-        "special": [
-            { "identifier": "auto_dark_start", "setup": (initial) => setupAutoDarkInput(initial, "auto_dark_start") },
-            { "identifier": "auto_dark_end", "setup": (initial) => setupAutoDarkInput(initial, "auto_dark_end") },
-            { "identifier": "num_assignments", "setup": (initial) => setupAssignmentsSlider(initial) },
-            { "identifier": "num_todo_items", "setup": (initial) => setupTodoSlider(initial) },
-            { "identifier": "card_limit", "setup": (initial) => setupCardLimitSlider(initial) },
-            { "identifier": "card_method_dashboard", "setup": (initial) => setupDashboardMethod(initial) },
-            { "identifier": "custom_styles", "setup": (initial) => setupCustomStyle(initial) },
-            { "identifier": "scheduledReminderTime", "setup": (initial) => setupScheduledReminderInput(initial) },
-            { "identifier": "imageSize", "setup": (initial) => setupImageSizeInput(initial) },
-            { "identifier": "cardRoundness", "setup": (initial) => setupCardRoundnessInput(initial) },
-            { "identifier": "cardSpacing", "setup": (initial) => setupCardSpacingInput(initial) },
-            { "identifier": "cardWidth", "setup": (initial) => setupCardWidthInput(initial) },
-            { "identifier": "cardHeight", "setup": (initial) => setupCardHeightInput(initial) },
-            { "identifier": "customBackgroundLink", "setup": (initial) => setupCustomBackgroundLink(initial)},
-        ],
-    }
+		switches: syncedSwitches,
+		checkboxes: [
+			"browser_show_likes",
+			"gpa_calc_weighted",
+			"gpa_calc_cumulative",
+			// /*'card_method_date',*/ "show_updates",
+			"todo_hide_feedback",
+			"todo_full_height",
+			"device_dark",
+			"relative_dues",
+			"card_overdues",
+			// "todo_overdues",
+			"gpa_calc_prepend",
+			"auto_dark",
+			"assignment_date_format",
+			"todo_hr24",
+			"todo_separate_scrollbar",
+			"grade_hover",
+			// "hide_completed",
+			"hover_preview",
+			// "scheduledReminder",
+			"customCardStyles",
+		],
+		tabs: {
+			"advanced-settings": {
+				setup: displayAdvancedCards,
+				tab: ".advanced",
+			},
+			"gpa-bounds-btn": {
+				setup: displayGPABounds,
+				tab: ".gpa-bounds-container",
+			},
+			"custom-font-btn": {
+				setup: displayCustomFont,
+				tab: ".custom-font-container",
+			},
+			"card-colors-btn": { setup: null, tab: ".card-colors-container" },
+			"customize-dark-btn": {
+				setup: displayDarkModeFixUrls,
+				tab: ".customize-dark",
+			},
+			"import-export-btn": {
+				setup: displayThemeList,
+				tab: ".import-export",
+			},
+			"report-issue-btn": {
+				setup: displayErrors,
+				tab: ".report-issue-container",
+			},
+			"updates-btn": { setup: null, tab: ".updates-container" },
+		},
+		special: [
+			{
+				identifier: "auto_dark_start",
+				setup: (initial) =>
+					setupAutoDarkInput(initial, "auto_dark_start"),
+			},
+			{
+				identifier: "auto_dark_end",
+				setup: (initial) =>
+					setupAutoDarkInput(initial, "auto_dark_end"),
+			},
+			{
+				identifier: "num_assignments",
+				setup: (initial) => setupAssignmentsSlider(initial),
+			},
+			{
+				identifier: "num_todo_items",
+				setup: (initial) => setupTodoSlider(initial),
+			},
+			{
+				identifier: "card_limit",
+				setup: (initial) => setupCardLimitSlider(initial),
+			},
+			{
+				identifier: "card_method_dashboard",
+				setup: (initial) => setupDashboardMethod(initial),
+			},
+			{
+				identifier: "custom_styles",
+				setup: (initial) => setupCustomStyle(initial),
+			},
+			// {
+			// 	identifier: "scheduledReminderTime",
+			// 	setup: (initial) => setupScheduledReminderInput(initial),
+			// },
+			{
+				identifier: "imageSize",
+				setup: (initial) => setupImageSizeInput(initial),
+			},
+			{
+				identifier: "cardRoundness",
+				setup: (initial) => setupCardRoundnessInput(initial),
+			},
+			{
+				identifier: "cardSpacing",
+				setup: (initial) => setupCardSpacingInput(initial),
+			},
+			{
+				identifier: "cardWidth",
+				setup: (initial) => setupCardWidthInput(initial),
+			},
+			{
+				identifier: "cardHeight",
+				setup: (initial) => setupCardHeightInput(initial),
+			},
+			{
+				identifier: "customBackgroundLink",
+				setup: (initial) => setupCustomBackgroundLink(initial),
+			},
+		],
+	};
 
     chrome.storage.sync.get(menu.switches, sync => {
         menu.switches.forEach(option => {
@@ -329,7 +417,9 @@ function setup() {
 
     chrome.storage.sync.get(menu.checkboxes, sync => {
         menu.checkboxes.forEach(option => {
-            document.querySelector("#" + option).addEventListener("change", function (e) {
+			const checkbox = document.querySelector("#" + option);
+			if (!checkbox) {console.log(option); return;}
+            checkbox.addEventListener("change", function (e) {
                 let status = this.checked;
                 chrome.storage.sync.set(JSON.parse(`{"${option}": ${status}}`));
             });
@@ -510,7 +600,7 @@ function setup() {
     });
 
     document.querySelector("#alert").addEventListener("click", clearAlert);
-
+    // TODO: maybe fix this at some point, idk what is causing the error here
     document.querySelectorAll(".preset-button.customization-button").forEach(btn => btn.addEventListener("click", changeToPresetCSS));
 
     // activate card color inputs
@@ -748,6 +838,23 @@ function setup() {
         document.querySelector("#customBackgroundLink").value = "";
 		sendFromPopup("updateBackground");
     });
+
+    document.getElementById("fontsDropdown").addEventListener("click", (e) => {
+        const el = document.getElementById("quick-fonts");
+        const el2 = document.getElementsByClassName("custom-font")[0];
+        const arrow = document.getElementById("fontsDropdownArrow");
+        if (el.style.display === "none") {
+            el.style.display = "flex";
+            el2.style.display = "block";
+            arrow.style.transform = "rotate(180deg)";
+
+        } else {
+            el.style.display = "none";
+            el2.style.display = "none";
+            arrow.style.transform = "rotate(0deg)";
+        }
+    });
+
 }
 
 function applyGPAPreset(bounds) {
