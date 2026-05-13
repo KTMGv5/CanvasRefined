@@ -229,9 +229,7 @@ To add a new feature, please follow these guidelines.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-
-You can fork, modify, and use this code however you like with attributes, but no commercial use.
+You can fork, modify, and use this code however you like with attributes.
 
 ![Better Canvas](/icon/icon-48.png)
 
