@@ -6,6 +6,31 @@ function getCurrentCourseId() {
     return match ? parseInt(match[1]) : null;
 }
 
+function getSidebarLayoutMode() {
+    if (current_page.match(/^\/courses\/(\d+)(?:\/|$)/)) return "course";
+    if (current_page === "/" || current_page === "") return "dash";
+    return "general";
+}
+
+function getSidebarStateMode(mode = getSidebarLayoutMode()) {
+    return mode === "course" ? "course" : "dashboard";
+}
+
+function getSidebarStateKey(mode = getSidebarLayoutMode()) {
+    return `better_sidebar_expanded_${getSidebarStateMode(mode)}`;
+}
+
+async function getSidebarExpandedState(mode = getSidebarLayoutMode()) {
+    const key = getSidebarStateKey(mode);
+    const storage = await chrome.storage.local.get(key);
+    if (typeof storage[key] === "boolean") return storage[key];
+    return mode === "course";
+}
+
+function setSidebarExpandedState(mode, expanded) {
+    chrome.storage.local.set({ [getSidebarStateKey(mode)]: expanded });
+}
+
 let assignments = null;
 let grades = null;
 let announcements = [];
@@ -14,6 +39,7 @@ let assignmentsDue = [];
 let options = {};
 let timeCheck = null;
 let reminderCheck = null;
+let betterSidebarLoading = false;
 //let assignmentData = null;
 
 /*
@@ -269,6 +295,7 @@ function startExtension() {
         changeFavicon();
         updateReminders();
         applyCustomBackground();
+        ensureBetterSidebar();
 
         //getClassAverages();
         
@@ -403,25 +430,43 @@ function applyOptionsChanges(changes) {
 					window.location.reload();
 				}
 			case "better_sidebar":
-				if (options.better_sidebar) setupBetterSidebar();
-				// else window.location.reload();
-				else {
-					document.getElementById("header").style.display = "block";
-					document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "54px");
-					document.getElementById("better-sidebar-container").remove();
-				}
+                if (options.better_sidebar) {
+                    ensureBetterSidebar();
+                } else {
+                    resetBetterSidebarLayout();
+                }
 				break;
             case "sidebar_scale": {
                 const existingSidebar = document.getElementById("better-sidebar-container");
                 if (existingSidebar) {
-                    existingSidebar.remove();
-                    const mode = current_page.match(/^\/courses\/(\d+)\/?$/) ? "course" : "dash";
-                    setupBetterSidebar(mode);
+                    const expander = existingSidebar.querySelector(".better-sidebar-expander");
+                    updateSidebar(existingSidebar.dataset.expanded === "true", existingSidebar, expander);
                 }
                 break;
             }
 		}
     });
+}
+
+function resetBetterSidebarLayout() {
+    document.getElementById("header")?.style.removeProperty("display");
+    document.querySelector(".ic-Layout-wrapper")?.style.removeProperty("margin-left");
+    document.querySelector("#main")?.style.removeProperty("margin-left");
+    document.querySelector(".ic-app-nav-toggle-and-crumbs")?.style.removeProperty("display");
+    document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("display");
+    document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("align-items");
+    document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("min-width");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("flex");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("min-width");
+    document.getElementById("left-side")?.style.removeProperty("display");
+    document.getElementById("better-sidebar-container")?.remove();
+}
+
+function ensureBetterSidebar() {
+    if (!options.better_sidebar) return;
+    if (document.querySelector("#better-sidebar-container")) return;
+    if (!document.querySelector("#wrapper") || !document.querySelector(".ic-Layout-contentWrapper")) return;
+    setupBetterSidebar(getSidebarLayoutMode());
 }
 
 function applyCustomBackground() {
@@ -445,6 +490,52 @@ function applyCustomBackground() {
             background: color-mix(in srgb, var(--bcbackground-0) 45%, transparent) !important;
             backdrop-filter: blur(10px) !important;
             border-radius: 5px;
+        }
+        .header-bar,
+        .item-group-condensed,
+        .item-group-container {
+            background: transparent !important;
+            background-color: transparent !important;
+            backdrop-filter: blur(14px) saturate(120%) !important;
+            -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+        }
+        .item-group-condensed .ig-header,
+        .item-group-condensed .ig-row,
+        .item-group-container .ig-header,
+        .item-group-container .ig-row,
+        .item-group-condensed .header,
+        .item-group-container .header {
+            background: transparent !important;
+            background-color: transparent !important;
+            backdrop-filter: blur(14px) saturate(120%) !important;
+            -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+        }
+        .item-group-condensed .context_module_item,
+        .item-group-container .context_module_item {
+            background: transparent !important;
+            background-color: transparent !important;
+            backdrop-filter: blur(10px) saturate(115%) !important;
+            -webkit-backdrop-filter: blur(10px) saturate(115%) !important;
+        }
+        .item-group-condensed .context_module_item:hover,
+        .item-group-container .context_module_item:hover,
+        .item-group-condensed .context_module_item.context_module_item_hover,
+        .item-group-container .context_module_item.context_module_item_hover {
+            background: transparent !important;
+            background-color: transparent !important;
+            backdrop-filter: blur(16px) saturate(130%) !important;
+            -webkit-backdrop-filter: blur(16px) saturate(130%) !important;
+            border-radius: 10px !important;
+        }
+        .item-group-container {
+            background: transparent !important;
+            background-color: transparent !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border-radius: 12px !important;
+            border: 1px solid color-mix(in srgb, var(--bcborders) 75%, transparent) !important;
         }
         .bettercanvas-gpa-card {background: var(--bcbackground-0) !important;}
         .bettercanvas-gpa {background: var(--bcbackground-0) !important;}
@@ -472,49 +563,47 @@ function resetTimer() {
 }
 
 function checkDashboardReady() {
-	let callback;
-    if (current_page == "/" || current_page == "") {
-		console.log("I am dashboard");
-		callback = (mutationList) => {
-			for (const mutation of mutationList) {
-				if (mutation.type === "childList") {
-					if (mutation.target == document.querySelector("#DashboardCard_Container")) {
-						let cards = document.querySelectorAll('.ic-DashboardCard');
-						changeGradientCards();
-						setupCardAssignments();
-						loadCardAssignments();
-						customizeCards(cards);
-						insertGrades();
-						loadDashboardNotes();
-						setupGPACalc();
-						showUpdateMsg();
-					} else if (mutation.target == document.querySelector('#right-side')) {
-						if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
-							setupBetterTodo();
-							setupBetterSidebar();
-							// loadBetterTodo();
-						}
-					}
-				}
-			}
-		};
-	}
-	// else return;
-	else { // all outside dashboard
-		console.log("I am outside", current_page);
-		if (current_page.match(/^\/courses\/(\d+)\/?$/)) { // course main pages
-			callback = (mutationList) => {
-				for (const mutation of mutationList) {
-					if (mutation.target == document.querySelector('#right-side')) {
-						if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
-							setupBetterTodo();
-							setupBetterSidebar("course");
-						}
-					}
-				}
-			};
-		}
-	}
+    const callback = (mutationList) => {
+        for (const mutation of mutationList) {
+            if (mutation.type !== "childList") continue;
+            if (current_page == "/" || current_page == "") {
+                console.log("I am dashboard");
+                if (mutation.target == document.querySelector("#DashboardCard_Container")) {
+                    let cards = document.querySelectorAll('.ic-DashboardCard');
+                    changeGradientCards();
+                    setupCardAssignments();
+                    loadCardAssignments();
+                    customizeCards(cards);
+                    insertGrades();
+                    loadDashboardNotes();
+                    setupGPACalc();
+                    showUpdateMsg();
+                } else if (mutation.target == document.querySelector('#right-side')) {
+                    if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
+                        setupBetterTodo();
+                        setupBetterSidebar();
+                        // loadBetterTodo();
+                    }
+                }
+            } else if (current_page.match(/^\/courses\/(\d+)(?:\/|$)/)) {
+                if (mutation.target == document.querySelector('#right-side')) {
+                    if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
+                        setupBetterTodo();
+                        setupBetterSidebar(getSidebarLayoutMode());
+                    }
+                }
+            } else {
+                console.log("I am outside", current_page);
+                if (options.better_sidebar) {
+                    ensureBetterSidebar();
+                }
+            }
+
+            if (options.better_sidebar) {
+                ensureBetterSidebar();
+            }
+        }
+    };
 
     const observer = new MutationObserver(callback);
     observer.observe(document.querySelector('html'), { childList: true, subtree: true });
@@ -1362,83 +1451,90 @@ function applySidebarScaleStyles(sidebarList) {
     sidebarList.style.setProperty("--bc-sidebar-label-size", `${Math.round(14 * scale)}px`);
 }
 
-function setupBetterSidebar(mode = "dash") {
+async function setupBetterSidebar(mode = getSidebarLayoutMode()) {
     if (!options.better_sidebar) return;
     if (document.querySelector('#better-sidebar-container')) return;
     let wrapper = document.querySelector("#wrapper");
-    if (!wrapper) return;
+    if (!wrapper || betterSidebarLoading) return;
+    betterSidebarLoading = true;
     try {
-		const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
-		let courseLinks;
-		let expanded = false;
-		if (mode == "dash") {
-			document.getElementById("header").style.display = "none";
-			document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
-			mainWrapper.style.display = "flex";
-		}
-		else if (mode == "course") {
-			document.getElementById("header").style.display = "none";
-			document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
-			document.querySelector("#main")?.style.setProperty("margin-left", "0");
-			// document.getElementById("not_right_side").style.display = "flex";
-			mainWrapper.style.display = "flex";
-			document.querySelector(".ic-Layout-contentMain").style.flex = "1";
-			document.querySelector(".ic-Layout-contentMain").style.minWidth = "0";
-			courseLinks = getCourseLinks();
-			document.querySelector(".ic-app-nav-toggle-and-crumbs").style.display = "none";
-			const leftSide = document.getElementById("left-side");
-			if (leftSide) leftSide.style.display = "none";
-			expanded = true;
-		}
+        const layoutMode = mode === "course" || mode === "dash" ? mode : getSidebarLayoutMode();
+        const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
+        if (!mainWrapper) return;
+        let courseLinks;
+        let expanded = await getSidebarExpandedState(layoutMode);
+        mainWrapper.style.display = "flex";
+        mainWrapper.style.alignItems = "stretch";
+        mainWrapper.style.minWidth = "0";
+        if (layoutMode == "dash") {
+            document.getElementById("header")?.style.setProperty("display", "none");
+            document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
+        }
+        else if (layoutMode == "course") {
+            document.getElementById("header")?.style.setProperty("display", "none");
+            document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
+            document.querySelector("#main")?.style.setProperty("margin-left", "0");
+            const contentMain = document.querySelector(".ic-Layout-contentMain");
+            if (contentMain) {
+                contentMain.style.flex = "1";
+                contentMain.style.minWidth = "0";
+            }
+            courseLinks = getCourseLinks();
+            document.querySelector(".ic-app-nav-toggle-and-crumbs")?.style.setProperty("display", "none");
+            const leftSide = document.getElementById("left-side");
+            if (leftSide) leftSide.style.display = "none";
+        }
 
         let sidebarList = makeElement("div", mainWrapper, { id: "better-sidebar-container",
             style: `display:flex;flex-direction:column;width:50px;justify-content:center;align-items:center;box-sizing:border-box;position:relative;background-color:var(--bcbackground-0);height:100vh;position:sticky;top:0;left:0;`
         }, true);
-		let sidebarContent = makeElement("div", sidebarList, {
-			style: "display:flex;flex-direction:column;gap:20px;width:100%;flex:1;justify-content:flex-start;align-items:center;margin:40px;"
-		});
+        let sidebarContent = makeElement("div", sidebarList, {
+            style: "display:flex;flex-direction:column;gap:20px;width:100%;flex:1;justify-content:flex-start;align-items:center;margin:40px;"
+        });
         applySidebarScaleStyles(sidebarList);
-		// Populate sidebar from Canvas navigation menu dynamically
-		populateSidebarFromNav(sidebarContent);
+        sidebarList.dataset.expanded = expanded ? "true" : "false";
+        // Populate sidebar from Canvas navigation menu dynamically
+        populateSidebarFromNav(sidebarContent);
 
-		if (mode == "course") {
-			const courseLinksContainer = makeElement("div", sidebarContent, {
-				id: "better-course-links",
-				style: "display:flex;flex-direction:column;gap:12px;width:calc(100% - 16px);align-items:stretch;margin:15px 8px 0;padding:12px;border-radius:8px;background:linear-gradient(135deg, rgba(var(--bc-primary-rgb), 0.08) 0%, rgba(var(--bc-primary-rgb), 0.04) 100%);border:1px solid rgba(var(--bc-primary-rgb), 0.15);"
-			});
+        if (layoutMode == "course") {
+            const courseLinksContainer = makeElement("div", sidebarContent, {
+                id: "better-course-links",
+                style: "display:flex;flex-direction:column;gap:12px;width:calc(100% - 16px);align-items:stretch;margin:15px 8px 0;padding:12px;border-radius:8px;background:linear-gradient(135deg, rgba(var(--bc-primary-rgb), 0.08) 0%, rgba(var(--bc-primary-rgb), 0.04) 100%);border:1px solid rgba(var(--bc-primary-rgb), 0.15);"
+            });
 			
-			if (courseLinks && courseLinks.length > 0) {
-				makeElement("div", courseLinksContainer, {
-					id: "better-course-links-title",
-					textContent: "Course Pages",
-					style: "font-size:11px;color:var(--bctext-0);margin:0;font-weight:600;white-space:nowrap;text-align:center;display:block;letter-spacing:0.5px;text-transform:uppercase;opacity:0.8;"
-				})
-				makeElement("div", courseLinksContainer, {
-					style: "height:1px;background:linear-gradient(90deg, transparent, rgba(var(--bctext-0-rgb), 0.2), transparent);margin:2px 0;"
-				})
-				courseLinks.forEach((link) => {
-				createSidebarButton(
-					link.name,
-					domain + link.url,
-					courseLinksContainer,
-					`<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:18px;">
-						<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-						<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-						<g id="SVGRepo_iconCarrier">
-							<path d="M7.05025 1.53553C8.03344 0.552348 9.36692 0 10.7574 0C13.6528 0 16 2.34721 16 5.24264C16 6.63308 15.4477 7.96656 14.4645 8.94975L12.4142 11L11 9.58579L13.0503 7.53553C13.6584 6.92742 14 6.10264 14 5.24264C14 3.45178 12.5482 2 10.7574 2C9.89736 2 9.07258 2.34163 8.46447 2.94975L6.41421 5L5 3.58579L7.05025 1.53553Z" fill="white"></path>
-							<path d="M7.53553 13.0503L9.58579 11L11 12.4142L8.94975 14.4645C7.96656 15.4477 6.63308 16 5.24264 16C2.34721 16 0 13.6528 0 10.7574C0 9.36693 0.552347 8.03344 1.53553 7.05025L3.58579 5L5 6.41421L2.94975 8.46447C2.34163 9.07258 2 9.89736 2 10.7574C2 12.5482 3.45178 14 5.24264 14C6.10264 14 6.92742 13.6584 7.53553 13.0503Z" fill="white"></path>
-							<path d="M5.70711 11.7071L11.7071 5.70711L10.2929 4.29289L4.29289 10.2929L5.70711 11.7071Z" fill="white"></path>
-						</g>
-					</svg>`
-				);
-			});
-			}
-		}
+            if (courseLinks && courseLinks.length > 0) {
+                makeElement("div", courseLinksContainer, {
+                    id: "better-course-links-title",
+                    textContent: "Course Pages",
+                    style: "font-size:11px;color:var(--bctext-0);margin:0;font-weight:600;white-space:nowrap;text-align:center;display:block;letter-spacing:0.5px;text-transform:uppercase;opacity:0.8;"
+                })
+                makeElement("div", courseLinksContainer, {
+                    style: "height:1px;background:linear-gradient(90deg, transparent, rgba(var(--bctext-0-rgb), 0.2), transparent);margin:2px 0;"
+                })
+                courseLinks.forEach((link) => {
+                createSidebarButton(
+                    link.name,
+                    domain + link.url,
+                    courseLinksContainer,
+                    `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:18px;">
+                        <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                        <g id="SVGRepo_iconCarrier">
+                            <path d="M7.05025 1.53553C8.03344 0.552348 9.36692 0 10.7574 0C13.6528 0 16 2.34721 16 5.24264C16 6.63308 15.4477 7.96656 14.4645 8.94975L12.4142 11L11 9.58579L13.0503 7.53553C13.6584 6.92742 14 6.10264 14 5.24264C14 3.45178 12.5482 2 10.7574 2C9.89736 2 9.07258 2.34163 8.46447 2.94975L6.41421 5L5 3.58579L7.05025 1.53553Z" fill="white"></path>
+                            <path d="M7.53553 13.0503L9.58579 11L11 12.4142L8.94975 14.4645C7.96656 15.4477 6.63308 16 5.24264 16C2.34721 16 0 13.6528 0 10.7574C0 9.36693 0.552347 8.03344 1.53553 7.05025L3.58579 5L5 6.41421L2.94975 8.46447C2.34163 9.07258 2 9.89736 2 10.7574C2 12.5482 3.45178 14 5.24264 14C6.10264 14 6.92742 13.6584 7.53553 13.0503Z" fill="white"></path>
+                            <path d="M5.70711 11.7071L11.7071 5.70711L10.2929 4.29289L4.29289 10.2929L5.70711 11.7071Z" fill="white"></path>
+                        </g>
+                    </svg>`
+                );
+            });
+            }
+        }
 
 
         let expander = makeElement("div", sidebarList, {
-			style: "display:flex;flex-direction:column;gap:0px;margin-top:auto;width:100%;justify-content:center;align-items:center;cursor:pointer;",
-		});
+            className: "better-sidebar-expander",
+            style: "display:flex;flex-direction:column;gap:0px;margin-top:auto;width:100%;justify-content:center;align-items:center;cursor:pointer;",
+        });
         expander.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:30px;height:30px;transition:all .3s ease;">
                 <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -1448,15 +1544,20 @@ function setupBetterSidebar(mode = "dash") {
                 </g>
             </svg>
         `
-		updateSidebar(expanded, sidebarList, expander);
-		// const labels = document.querySelectorAll(".better-sidebar-label");
-		// labels.forEach(label => label.style.display = "none");
-		expander.addEventListener("click", () => {
-			expanded = !expanded;
+        updateSidebar(expanded, sidebarList, expander);
+        setSidebarExpandedState(layoutMode, expanded);
+        // const labels = document.querySelectorAll(".better-sidebar-label");
+        // labels.forEach(label => label.style.display = "none");
+        expander.addEventListener("click", () => {
+            expanded = !expanded;
+            sidebarList.dataset.expanded = expanded ? "true" : "false";
+            setSidebarExpandedState(layoutMode, expanded);
             updateSidebar(expanded, sidebarList, expander);
         })
     } catch (e) {
         logError(e);
+    } finally {
+        betterSidebarLoading = false;
     }
 }
 function createSidebarButton(text, url, parent, icon) {
