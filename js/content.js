@@ -479,27 +479,32 @@ function applyCustomBackground() {
         #wrapper {
             background-image: url('${options.customBackgroundLink}') !important;
             background-size: cover !important;
-            background-attachment: fixed !important; 
+            background-attachment: fixed !important;
         }
-        .ic-Dashboard-header__layout { 
-            background: none !important;  
-            backdrop-filter: blur(10px) !important;
+        .ic-Dashboard-header__layout {
+            background: none !important;
+            /* backdrop-filter: blur(10px) !important; */
             border-radius: 5px;
         }
         #right-side-wrapper {
             background: color-mix(in srgb, var(--bcbackground-0) 45%, transparent) !important;
-            backdrop-filter: blur(10px) !important;
+            /* backdrop-filter: blur(10px) !important; */
             border-radius: 5px;
         }
         .header-bar,
         .item-group-condensed,
         .item-group-container {
             background: transparent !important;
-            background-color: transparent !important;
-            backdrop-filter: blur(14px) saturate(120%) !important;
-            -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+            /* backdrop-filter: blur(14px) saturate(120%) !important;
+               -webkit-backdrop-filter: blur(14px) saturate(120%) !important; */
             border-radius: 12px !important;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+            border: 1px solid color-mix(in srgb, var(--bcborders) 75%, transparent) !important;
+            /* box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important; */
+        }
+        #context_modules_sortable_container {
+            border: none !important;
+            background: none !important;
+            /* backdrop-filter: blur(0) !important; */
         }
         .item-group-condensed .ig-header,
         .item-group-condensed .ig-row,
@@ -508,38 +513,64 @@ function applyCustomBackground() {
         .item-group-condensed .header,
         .item-group-container .header {
             background: transparent !important;
-            background-color: transparent !important;
-            backdrop-filter: blur(14px) saturate(120%) !important;
-            -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+        }
+        .item-group-condensed .ig-header.header,
+        .item-group-container .ig-header.header {
+            background: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+        }
+        .item-group-condensed .ig-row.ig-published.no-estimated-duration {
+            background: color-mix(in srgb, var(--bcbackground-0) 45%, transparent) !important;
+            color: var(--bctext-1) !important;
+            border: 1px solid color-mix(in srgb, var(--bcborders) 60%, transparent) !important;
+            border-radius: 0 !important;
+            padding: 10px 12px !important;
         }
         .item-group-condensed .context_module_item,
         .item-group-container .context_module_item {
             background: transparent !important;
-            background-color: transparent !important;
-            backdrop-filter: blur(10px) saturate(115%) !important;
-            -webkit-backdrop-filter: blur(10px) saturate(115%) !important;
+            /* backdrop-filter: blur(10px) saturate(115%) !important;
+               -webkit-backdrop-filter: blur(10px) saturate(115%) !important; */
         }
         .item-group-condensed .context_module_item:hover,
         .item-group-container .context_module_item:hover,
         .item-group-condensed .context_module_item.context_module_item_hover,
         .item-group-container .context_module_item.context_module_item_hover {
             background: transparent !important;
-            background-color: transparent !important;
-            backdrop-filter: blur(16px) saturate(130%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(130%) !important;
             border-radius: 10px !important;
         }
         .item-group-container {
             background: transparent !important;
-            background-color: transparent !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
             border-radius: 12px !important;
             border: 1px solid color-mix(in srgb, var(--bcborders) 75%, transparent) !important;
         }
-        .bettercanvas-gpa-card {background: var(--bcbackground-0) !important;}
-        .bettercanvas-gpa {background: var(--bcbackground-0) !important;}
-        .ic-DashboardCard {background: var(--bcbackground-0) !important;}`; // todo: liquid glass?
+        .ig-header {
+            /* backdrop-filter: blur(10px) !important; */
+        }
+        .item-group-condensed.context_module,
+        .item-group-condensed.context_module_item,
+        .item-group-condensed[class~="context_module"] {
+            margin-bottom: 10px !important;
+            padding-bottom: 0 !important;
+        }
+
+        /* Apply backdrop blur only to module panels, not to all headers */
+        .item-group-condensed.context_module,
+        .item-group-condensed.context_module_item,
+        .item-group-condensed.context_module:hover,
+        .item-group-condensed.context_module_item:hover,
+        .item-group-condensed.context_module.context_module_item_hover,
+        .item-group-condensed.context_module_item.context_module_item_hover {
+            // background: color-mix(in srgb, var(--bcbackground-0) 45%, transparent) !important;
+            backdrop-filter: blur(5px) !important;
+            -webkit-backdrop-filter: blur(5px) !important;
+        }
+        .bettercanvas-gpa-card,
+        .bettercanvas-gpa,
+        .ic-DashboardCard {
+            background: var(--bcbackground-0) !important;
+        }`; // TODO: liquid glass?
     }
     
     document.documentElement.appendChild(style);
