@@ -40,6 +40,7 @@ let options = {};
 let timeCheck = null;
 let reminderCheck = null;
 let betterSidebarLoading = false;
+let dashboardReadyTimer = null;
 //let assignmentData = null;
 
 /*
@@ -284,6 +285,11 @@ function isDomainCanvasPage() {
 function startExtension() {
     toggleDarkMode();
 
+    chrome.storage.sync.get(["better_sidebar", "sidebar_scale"], result => {
+        options = { ...options, ...result };
+        ensureBetterSidebar();
+    });
+
     chrome.storage.sync.get(null, result => {
         options = { ...options, ...result };
         toggleAutoDarkMode();
@@ -299,7 +305,7 @@ function startExtension() {
 
         //getClassAverages();
         
-        setTimeout(() => document.getElementById("footer").remove(), 800);
+        setTimeout(() => document.getElementById("footer")?.remove(), 800);
         setTimeout(() => runDarkModeFixer(false), 800);
         setTimeout(() => runDarkModeFixer(false), 4500);
     });
@@ -453,6 +459,12 @@ function resetBetterSidebarLayout() {
     document.querySelector(".ic-Layout-wrapper")?.style.removeProperty("margin-left");
     document.querySelector("#main")?.style.removeProperty("margin-left");
     document.querySelector(".ic-app-nav-toggle-and-crumbs")?.style.removeProperty("display");
+    document.getElementById("not_right_side")?.style.removeProperty("display");
+    document.getElementById("not_right_side")?.style.removeProperty("flex");
+    document.getElementById("not_right_side")?.style.removeProperty("min-width");
+    document.getElementById("right-side-wrapper")?.style.removeProperty("flex");
+    document.getElementById("right-side-wrapper")?.style.removeProperty("width");
+    document.getElementById("right-side-wrapper")?.style.removeProperty("max-width");
     document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("display");
     document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("align-items");
     document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("min-width");
@@ -460,6 +472,7 @@ function resetBetterSidebarLayout() {
     document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("min-width");
     document.getElementById("left-side")?.style.removeProperty("display");
     document.getElementById("better-sidebar-container")?.remove();
+    clearBetterSidebarLayoutFix();
 }
 
 function ensureBetterSidebar() {
@@ -580,6 +593,24 @@ function clearCustomBackground() {
 	if (style) style.remove();
 }
 
+function applyBetterSidebarLayoutFix() {
+    let style = document.querySelector("#bettercanvas-sidebar-layout-fix") || document.createElement("style");
+    style.id = "bettercanvas-sidebar-layout-fix";
+    style.textContent = `
+        #wrapper,
+        .ic-Layout-wrapper,
+        #main {
+            margin-left: 0 !important;
+        }
+    `;
+    document.documentElement.appendChild(style);
+}
+
+function clearBetterSidebarLayoutFix() {
+	let style = document.querySelector("#bettercanvas-sidebar-layout-fix");
+	if (style) style.remove();
+}
+
 let insertTimer;
 function resetTimer() {
     clearTimeout(insertTimer);
@@ -597,41 +628,39 @@ function checkDashboardReady() {
     const callback = (mutationList) => {
         for (const mutation of mutationList) {
             if (mutation.type !== "childList") continue;
-            if (current_page == "/" || current_page == "") {
-                console.log("I am dashboard");
-                if (mutation.target == document.querySelector("#DashboardCard_Container")) {
-                    let cards = document.querySelectorAll('.ic-DashboardCard');
-                    changeGradientCards();
-                    setupCardAssignments();
-                    loadCardAssignments();
-                    customizeCards(cards);
-                    insertGrades();
-                    loadDashboardNotes();
-                    setupGPACalc();
-                    showUpdateMsg();
-                } else if (mutation.target == document.querySelector('#right-side')) {
-                    if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
-                        setupBetterTodo();
-                        setupBetterSidebar();
-                        // loadBetterTodo();
+            if (current_page == "/" || current_page == "" || current_page.match(/^\/courses\/(\d+)(?:\/|$)/)) {
+                if (dashboardReadyTimer) continue;
+                dashboardReadyTimer = setTimeout(() => {
+                    dashboardReadyTimer = null;
+
+                    const dashboardCards = document.querySelector("#DashboardCard_Container");
+                    if (dashboardCards) {
+                        let cards = document.querySelectorAll(".ic-DashboardCard");
+                        changeGradientCards();
+                        setupCardAssignments();
+                        loadCardAssignments();
+                        customizeCards(cards);
+                        insertGrades();
+                        loadDashboardNotes();
+                        setupGPACalc();
+                        showUpdateMsg();
                     }
-                }
-            } else if (current_page.match(/^\/courses\/(\d+)(?:\/|$)/)) {
-                if (mutation.target == document.querySelector('#right-side')) {
-                    if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
+
+                    const rightSide = document.querySelector("#right-side");
+                    if (rightSide && !rightSide.querySelector(".bettercanvas-todosidebar")) {
                         setupBetterTodo();
                         setupBetterSidebar(getSidebarLayoutMode());
                     }
-                }
+
+                    if (options.better_sidebar) {
+                        ensureBetterSidebar();
+                    }
+                }, 0);
             } else {
                 console.log("I am outside", current_page);
                 if (options.better_sidebar) {
                     ensureBetterSidebar();
                 }
-            }
-
-            if (options.better_sidebar) {
-                ensureBetterSidebar();
             }
         }
     };
@@ -1490,39 +1519,64 @@ async function setupBetterSidebar(mode = getSidebarLayoutMode()) {
     betterSidebarLoading = true;
     try {
         const layoutMode = mode === "course" || mode === "dash" ? mode : getSidebarLayoutMode();
+        const outerWrapper = document.getElementById("main");
+        outerWrapper.style.setProperty("display", "flex", "important");
+        // document.getElementById("not_right_side").style.setProperty("display", "none", "important");
+        const leftSide = document.getElementById("left-side")
+        leftSide.style.opacity = "1";
+        leftSide.style.position = "static";
         const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
         if (!mainWrapper) return;
-        let expanded = await getSidebarExpandedState(layoutMode);
+        const expandedPromise = getSidebarExpandedState(layoutMode);
+        applyBetterSidebarLayoutFix();
         mainWrapper.style.display = "flex";
         mainWrapper.style.alignItems = "stretch";
         mainWrapper.style.minWidth = "0";
+        document.querySelector(".ic-Layout-contentMain")?.style.setProperty("flex", "1 1 auto");
+        document.querySelector(".ic-Layout-contentMain")?.style.setProperty("min-width", "0");
+        if (layoutMode === "course") {
+            const notRightSide = document.getElementById("not_right_side");
+            const rightSideWrapper = document.getElementById("right-side-wrapper");
+            leftSide.style.flex = "0 0 250px";
+            leftSide.style.width = "250px";
+            leftSide.style.maxWidth = "250px";
+            if (notRightSide) {
+                notRightSide.style.display = "flex";
+                notRightSide.style.flex = "1 1 auto";
+                notRightSide.style.minWidth = "0";
+            }
+            if (rightSideWrapper) {
+                rightSideWrapper.style.flex = "0 0 340px";
+                rightSideWrapper.style.width = "340px";
+                rightSideWrapper.style.maxWidth = "340px";
+            }
+        }
+        const sidebarParent = layoutMode === "course" && leftSide ? leftSide : mainWrapper;
+        if (layoutMode === "course" && leftSide) {
+            leftSide.style.display = "flex";
+            leftSide.style.flexDirection = "row";
+            leftSide.style.alignItems = "stretch";
+            leftSide.style.minWidth = "0";
+            leftSide.style.gap = "0";
+        }
+        document.querySelector(".ic-app-nav-toggle-and-crumbs")?.style.setProperty("display", "none");
+        if (layoutMode !== "course") {
+            document.getElementById("left-side")?.style.removeProperty("display");
+        }
         if (layoutMode == "dash") {
             document.getElementById("header")?.style.setProperty("display", "none");
-            document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
         }
         else if (layoutMode == "course") {
             document.getElementById("header")?.style.setProperty("display", "none");
-            document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
-            document.querySelector("#main")?.style.setProperty("margin-left", "0");
-            const contentMain = document.querySelector(".ic-Layout-contentMain");
-            if (contentMain) {
-                contentMain.style.flex = "1";
-                contentMain.style.minWidth = "0";
-            }
         }
 
-        let sidebarList = makeElement("div", mainWrapper, { id: "better-sidebar-container",
+        let sidebarList = makeElement("div", sidebarParent, { id: "better-sidebar-container",
             style: `display:flex;flex-direction:column;width:50px;justify-content:center;align-items:center;box-sizing:border-box;position:relative;background-color:var(--bcbackground-0);height:100vh;position:sticky;top:0;left:0;`
         }, true);
         let sidebarContent = makeElement("div", sidebarList, {
             style: "display:flex;flex-direction:column;gap:20px;width:100%;flex:1;justify-content:flex-start;align-items:center;margin:40px;"
         });
         applySidebarScaleStyles(sidebarList);
-        sidebarList.dataset.expanded = expanded ? "true" : "false";
-        // Populate sidebar from Canvas navigation menu dynamically
-        populateSidebarFromNav(sidebarContent);
-
-
         let expander = makeElement("div", sidebarList, {
             className: "better-sidebar-expander",
             style: "display:flex;flex-direction:column;gap:0px;margin-top:auto;width:100%;justify-content:center;align-items:center;cursor:pointer;",
@@ -1536,6 +1590,12 @@ async function setupBetterSidebar(mode = getSidebarLayoutMode()) {
                 </g>
             </svg>
         `
+        sidebarList.dataset.expanded = "false";
+        updateSidebar(false, sidebarList, expander);
+        requestAnimationFrame(() => populateSidebarFromNav(sidebarContent));
+
+        let expanded = await expandedPromise;
+        sidebarList.dataset.expanded = expanded ? "true" : "false";
         updateSidebar(expanded, sidebarList, expander);
         setSidebarExpandedState(layoutMode, expanded);
         // const labels = document.querySelectorAll(".better-sidebar-label");
