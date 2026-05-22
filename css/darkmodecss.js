@@ -574,6 +574,11 @@ table.summary thead th,
     border-color:var(--bcborders)!important
 }
 
+tr.student_assignment.assignment_graded.editable {
+    border-top:1px solid var(--bctext-1)!important;
+    border-bottom:1px solid var(--bctext-1)!important
+}
+
 .discussion-section.message_wrapper table {
     border:4px solid var(--bcborders)!important
 }
@@ -630,6 +635,10 @@ ul.outcome-level {
 .table th,
 .dNoYT_bGBk {
     border-top:1px solid var(--bcborders)!important
+}
+
+td.details {
+    border-bottom:none!important
 }
 
 .discussions-v2__container-image {

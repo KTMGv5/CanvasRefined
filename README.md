@@ -95,6 +95,7 @@ Actually Better Canvas adds more with more to come!
 - quick modules button on cards
 - module sorting (newest, oldest) (maybe grid view)
 - grade leaderboard per class (opt in)
+- GPA preset by school name maybe
 
 ## Dev Installation
 

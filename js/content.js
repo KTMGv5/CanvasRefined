@@ -12,6 +12,10 @@ function getSidebarLayoutMode() {
     return "general";
 }
 
+function isGradesPage() {
+    return /^\/courses\/\d+\/grades(?:\/|$)/.test(current_page);
+}
+
 function getSidebarStateMode(mode = getSidebarLayoutMode()) {
     return mode === "course" ? "course" : "dashboard";
 }
@@ -542,6 +546,9 @@ function applyCustomBackground() {
             background: none !important;
             border: none !important;
             border-radius: 0 !important;
+        }
+        #assignments.ui-tabs-panel {
+            background: transparent !important;
         }
         .item-group-condensed .ig-row.ig-published.no-estimated-duration {
             color: var(--bctext-1) !important;
@@ -1512,7 +1519,7 @@ function createTodoViewMore(location, type) {
 
 // better todo init
 function setupBetterTodo() {
-    if (options.better_todo !== true) return;
+    if (options.better_todo !== true || isGradesPage()) return;
     if (document.querySelector('#bettercanvas-todo-list')) return;
     let list = document.querySelector("#right-side");
     if (!list) return;
@@ -1833,7 +1840,7 @@ let moreAssignmentCount = 0;
 let moreAnnouncementCount = 0;
 let filter = "todo";
 async function loadBetterTodo() {
-    if (options.better_todo !== true) return;
+    if (options.better_todo !== true || isGradesPage()) return;
     try {
         await getColors();
         const discussion_svg = '<svg class="bettercanvas-todo-svg" name="IconDiscussion" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false"  ><g role="presentation"><path d="M677.647059,16 L677.647059,354.936471 L790.588235,354.936471 L790.588235,129.054118 L1807.05882,129.054118 L1807.05882,919.529412 L1581.06353,919.529412 L1581.06353,1179.29412 L1321.41176,919.529412 L1242.24,919.529412 L1242.24,467.877647 L677.647059,467.877647 L0,467.877647 L0,1484.34824 L338.710588,1484.34824 L338.710588,1903.24706 L756.705882,1484.34824 L1242.24,1484.34824 L1242.24,1032.47059 L1274.99294,1032.47059 L1694.11765,1451.59529 L1694.11765,1032.47059 L1920,1032.47059 L1920,16 L677.647059,16 Z M338.789647,919.563294 L903.495529,919.563294 L903.495529,806.622118 L338.789647,806.622118 L338.789647,919.563294 Z M338.789647,1145.44565 L677.726118,1145.44565 L677.726118,1032.39153 L338.789647,1032.39153 L338.789647,1145.44565 Z M112.941176,580.705882 L1129.41176,580.705882 L1129.41176,1371.40706 L710.4,1371.40706 L451.651765,1631.05882 L451.651765,1371.40706 L112.941176,1371.40706 L112.941176,580.705882 Z" fill-rule="evenodd" stroke="none" stroke-width="1"></path></g></svg>';
