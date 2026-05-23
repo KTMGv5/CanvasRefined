@@ -548,7 +548,14 @@ function applyCustomBackground() {
             border-radius: 0 !important;
         }
         #assignments.ui-tabs-panel {
-            background: transparent !important;
+            background-color: color-mix(in srgb, var(--bcbackground-0), transparent 35%) !important;
+            border-radius: 5px !important;
+        }
+        #assignments {
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
         }
         .item-group-condensed .ig-row.ig-published.no-estimated-duration {
             color: var(--bctext-1) !important;
@@ -604,6 +611,9 @@ function applyCustomBackground() {
         .bettercanvas-gpa,
         .ic-DashboardCard {
             background: var(--bcbackground-0) !important;
+        }
+        tr.student_assignment.assignment_graded.editable > * {
+            border:none!important
         }`; 
         // TODO: liquid glass?
     }

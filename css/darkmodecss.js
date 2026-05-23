@@ -482,7 +482,7 @@ table.seas-homepage-table,
 }
 
 #assignment_show .student-assignment-overview,
-#grades_summary th.title,
+#grades_summary,
 #kl_wrapper_3.kl_colored_headings h4,
 #kl_wrapper_3.kl_colored_headings_box_left h4,
 #minical .fc-toolbar,
@@ -635,10 +635,6 @@ ul.outcome-level {
 .table th,
 .dNoYT_bGBk {
     border-top:1px solid var(--bcborders)!important
-}
-
-td.details {
-    border-bottom:none!important
 }
 
 .discussions-v2__container-image {
