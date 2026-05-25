@@ -543,6 +543,29 @@ function applyOptionsChanges(changes) {
 				} else {
 					window.location.reload();
 				}
+                    break;
+                case "todo_progress_rings": {
+                    // toggle progress rings immediately
+                    const placeholder = document.getElementById("better-todo-progress-placeholder");
+                    if (!placeholder) break;
+                    if (changes[key].newValue === true || changes[key].newValue === undefined) {
+                        if (typeof assignments?.then === 'function') {
+                            assignments.then(data => {
+                                const courseId = getCurrentCourseId();
+                                const scopedData = courseId
+                                    ? data.filter(item => {
+                                        const itemCourseId = parseInt(item.course_id || item.context_id || item?.plannable?.course_id);
+                                        return itemCourseId === courseId;
+                                    })
+                                    : data;
+                                renderProgressRings(placeholder, scopedData);
+                            });
+                        }
+                    } else {
+                        placeholder.innerHTML = "";
+                    }
+                    break;
+                }
 			case "better_sidebar":
                 if (options.better_sidebar) {
                     ensureBetterSidebar();
@@ -1783,66 +1806,69 @@ async function createTodoSections(location) {
 
 		domContainers = {};
 		const groupKeys = ["-1", "0", "1", "2", "3", "4", "5", "6", "7", "14", "21", "30", "Later", "New", "Seen", "Ungraded", "Graded"];
-		for (const key of groupKeys) {
-			let wrapper = makeElement("div", mainSection, {
-				style: "display:none;margin-top:10px;",
-				className: "better-todo-dueheader",
-			});
-			let label = "";
-			if (key == "Later") label = "Due <strong>Later</strong>";
-			if (key == "-1") label = "<strong>Overdue</strong>";
-			else if (key == "0") label = "Due <strong>Today</strong>";
-			else if (key == "1") label = "Due <strong>Tommorow</strong>";
-			else if (key >= 2 && key < 7) label = "Due <strong>" + key + " days</strong>";
-			else if (key >= 7 && key < 30) label = "Due <strong>" + key/7 + " weeks</strong>";
-			else if (key == "30") label = "Due <strong>1 month</strong>";
-			else label = "<strong>" + key + "</strong>";
-			makeElement("div", wrapper, {
-				innerHTML: "<span>" + label + "</span>",
-				style: "display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--bctext-0);" // TODO: might not be theme compatible
-			})
+        for (const key of groupKeys) {
+            let wrapper = makeElement("div", mainSection, {
+                style: "display:none;margin-top:10px;",
+                className: "better-todo-dueheader",
+            });
+            let label = "";
+            if (key == "Later") label = "Due <strong>Later</strong>";
+            if (key == "-1") label = "<strong>Overdue</strong>";
+            else if (key == "0") label = "Due <strong>Today</strong>";
+            else if (key == "1") label = "Due <strong>Tommorow</strong>";
+            else if (key >= 2 && key < 7) label = "Due <strong>" + key + " days</strong>";
+            else if (key >= 7 && key < 30) label = "Due <strong>" + key/7 + " weeks</strong>";
+            else if (key == "30") label = "Due <strong>1 month</strong>";
+            else label = "<strong>" + key + "</strong>";
+            makeElement("div", wrapper, {
+                innerHTML: "<span>" + label + "</span>",
+                style: "display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--bctext-0);"
+            })
 
-			let listContainer = makeElement("div", wrapper, { className: "todo-group-list" });
-			listContainer.style = "display:flex;flex-direction:column;gap:10px;";
+            let listContainer = makeElement("div", wrapper, { className: "todo-group-list" });
+            listContainer.style = "display:flex;flex-direction:column;gap:10px;";
 
-			domContainers[key] = { wrapper, listContainer };
-		}
+            domContainers[key] = { wrapper, listContainer };
+        }
 
 
         if (betterTodoFilter == "tasks") {
             populateAssignments();
         }
-		if (betterTodoFilter == "announcements") {
-			populateAnnouncements();
-		}
-		if (betterTodoFilter == "completed") {
-			populateAssignments(true);
-		}
+        if (betterTodoFilter == "announcements") {
+            populateAnnouncements();
+        }
+        if (betterTodoFilter == "completed") {
+            populateAssignments(true);
+        }
 
         const feedbackElement = location.querySelector(".recent_feedback");
 
-        // populate progress rings placeholder
+        // populate progress rings placeholder (respect user toggle)
         const progressPlaceholder = document.getElementById("better-todo-progress-placeholder");
         if (progressPlaceholder) {
-            renderProgressRings(progressPlaceholder, scopedData);
+            if (options.todo_progress_rings === undefined || options.todo_progress_rings === true) {
+                renderProgressRings(progressPlaceholder, scopedData);
+            } else {
+                progressPlaceholder.innerHTML = "";
+            }
         }
 
         // Only show the Add Task control on the Assignments (tasks) tab.
         if (betterTodoFilter === "tasks") {
             ensureTodoTaskMenu(location, feedbackElement);
         } else {
-            // remove the actions row if it exists when not on the assignments tab
             const existing = location.querySelector("#better-todo-actions-row");
             if (existing) existing.remove();
         }
 
         if (feedbackElement) {
-			if (options.todo_hide_feedback == true) {
-				feedbackElement.style.display = "none";
-			} else {
-				feedbackElement.style.display = "block";
-			}
-		}
+            if (options.todo_hide_feedback == true) {
+                feedbackElement.style.display = "none";
+            } else {
+                feedbackElement.style.display = "block";
+            }
+        }
 
         const sidebar = document.getElementById("right-side-wrapper");
         ensureRightSideWrapperScrollbarHidden();
@@ -2092,6 +2118,119 @@ function populateAnnouncements() {
 	});
 }
 
+function createConfettiBurst(targetElement, opts = {}) {
+    try {
+        const count = opts.count || 48;
+        const colors = opts.colors || ['#ff4d4f', '#ffc107', '#28a745', '#17a2b8', '#6f42c1', '#ff6b6b', '#ff8a65', '#ffd54f'];
+        const rect = targetElement.getBoundingClientRect();
+        const container = document.createElement('div');
+        container.className = 'bettercanvas-confetti-container';
+        container.style.position = 'fixed';
+        container.style.left = '0';
+        container.style.top = '0';
+        container.style.pointerEvents = 'none';
+        container.style.overflow = 'visible';
+        container.style.zIndex = '2147483647';
+        document.body.appendChild(container);
+
+        const originX = rect.left + rect.width / 2;
+        const originY = rect.top + rect.height * 0.35;
+        const particles = [];
+
+        for (let i = 0; i < count; i++) {
+            const el = document.createElement('div');
+            el.className = 'bettercanvas-confetti';
+            const w = 4 + Math.floor(Math.random() * 7); // smaller pieces
+            const h = Math.max(3, Math.floor(w * (0.4 + Math.random() * 0.8)));
+            el.style.position = 'absolute';
+            el.style.width = w + 'px';
+            el.style.height = h + 'px';
+            el.style.background = colors[Math.floor(Math.random() * colors.length)];
+            el.style.left = (originX - w / 2) + 'px';
+            el.style.top = (originY - h / 2) + 'px';
+            el.style.opacity = '1';
+            el.style.borderRadius = Math.random() > 0.75 ? '50%' : '2px';
+            el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.18)';
+            el.style.transformOrigin = 'center center';
+            el.style.willChange = 'transform, opacity';
+            container.appendChild(el);
+
+            const duration = 850 + Math.floor(Math.random() * 500);
+            const delay = Math.floor(Math.random() * 90);
+            const spread = opts.spread || 110;
+            const horizontalBias = (Math.random() - 0.5) * 2;
+
+            // Arc stays lower and wider than the old cone-shaped burst.
+            const endX = originX + horizontalBias * (spread * (0.7 + Math.random() * 0.6));
+            const endY = originY - (16 + Math.random() * 34);
+            const ctrlX = originX + horizontalBias * (spread * 0.25) + (Math.random() - 0.5) * 14;
+            const ctrlY = originY - (30 + Math.random() * 55);
+
+            particles.push({
+                el,
+                delay,
+                duration,
+                originX,
+                originY,
+                ctrlX,
+                ctrlY,
+                endX,
+                endY,
+                rotate: (Math.random() * 260) - 130,
+                scale: 0.8 + Math.random() * 0.5,
+            });
+        }
+
+        const startTime = performance.now();
+        let rafId = null;
+
+        const animate = now => {
+            let active = false;
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                const elapsed = now - startTime - particle.delay;
+                if (elapsed < 0) {
+                    active = true;
+                    continue;
+                }
+
+                const progress = Math.min(1, elapsed / particle.duration);
+                const eased = 1 - Math.pow(1 - progress, 3);
+
+                const x = (1 - eased) * (1 - eased) * particle.originX + 2 * (1 - eased) * eased * particle.ctrlX + eased * eased * particle.endX;
+                const y = (1 - eased) * (1 - eased) * particle.originY + 2 * (1 - eased) * eased * particle.ctrlY + eased * eased * particle.endY;
+
+                particle.el.style.transform = `translate(${Math.round(x - particle.originX)}px, ${Math.round(y - particle.originY)}px) rotate(${particle.rotate * eased}deg) scale(${particle.scale * (1 - eased * 0.15)})`;
+                particle.el.style.opacity = String(1 - progress);
+
+                if (progress < 1) {
+                    active = true;
+                } else {
+                    particle.el.remove();
+                    particles.splice(i, 1);
+                }
+            }
+
+            if (active) {
+                rafId = requestAnimationFrame(animate);
+            } else {
+                try { container.remove(); } catch (e) { /* ignore */ }
+                if (rafId) cancelAnimationFrame(rafId);
+            }
+        };
+
+        rafId = requestAnimationFrame(animate);
+
+        // cleanup container after animations
+        setTimeout(() => {
+            try { container.remove(); } catch (e) { /* ignore */ }
+        }, 2400);
+    } catch (e) {
+        console.error('confetti error', e);
+    }
+}
+
 function markAs(item, element) {
 	const csrfToken = CSRFtoken();
 	const completeState = item.planner_override ? !item.planner_override.marked_complete : true;
@@ -2117,9 +2256,14 @@ function markAs(item, element) {
 			element.style.transform = "translate(100%)";
 			element.style.opacity = "0";
 
+            // fire confetti only when marking complete (not when unmarking)
+            if (completeState) {
+                try { createConfettiBurst(element); } catch (e) { console.error('confetti trigger error', e); }
+            }
+
         // update progress rings immediately so they animate while the item slides/fades
         const progressPlaceholder = document.getElementById("better-todo-progress-placeholder");
-        if (progressPlaceholder && typeof assignments?.then === 'function') {
+        if (progressPlaceholder && typeof assignments?.then === 'function' && (options.todo_progress_rings === undefined || options.todo_progress_rings === true)) {
             assignments.then(data => {
                 const courseId = getCurrentCourseId();
                 const scopedData = courseId
