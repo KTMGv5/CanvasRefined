@@ -2120,6 +2120,8 @@ function populateAnnouncements() {
 
 function createConfettiBurst(targetElement, opts = {}) {
     try {
+        if (options.todo_confetti === false) return;
+
         const count = opts.count || 48;
         const colors = opts.colors || ['#ff4d4f', '#ffc107', '#28a745', '#17a2b8', '#6f42c1', '#ff6b6b', '#ff8a65', '#ffd54f'];
         const rect = targetElement.getBoundingClientRect();

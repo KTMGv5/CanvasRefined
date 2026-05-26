@@ -2,6 +2,7 @@ const syncedSwitches = ['remind', 'tab_icons', 'hide_feedback', 'dark_mode', 're
 const syncedSubOptions = [
 	"todo_hide_feedback",
 	"todo_full_height",
+    "todo_confetti",
 	"device_dark",
 	"relative_dues",
 	"card_overdues",
@@ -113,6 +114,7 @@ const defaultOptions = {
         "todo_hide_feedback": false,
 		"todo_full_height": false,
         "todo_progress_rings": true,
+		"todo_confetti": true,
         "device_dark": false,
         "cumulative_gpa": { "name": "Cumulative GPA", "hidden": false, "weight": "dnc", "credits": 999, "gr": 3.21 },
         // "show_updates": false,
@@ -305,6 +307,7 @@ function setup() {
 			// /*'card_method_date',*/ "show_updates",
             "todo_hide_feedback",
             "todo_progress_rings",
+            "todo_confetti",
 			"todo_full_height",
 			"device_dark",
 			"relative_dues",
