@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Actually Better Canvas",
+  "name": "CanvasRefined",
   "description": "Even More Feature packed extension for Canvas.",
   "version": "5.12.6",
   "icons": {
@@ -15,7 +15,7 @@
       "38": "icon/icon-38.png"
     },
     "default_popup": "html/popup.html",
-    "default_title": "Better Canvas"
+    "default_title": "Canvas Refined"
   },
   "background": {
     "service_worker": "js/background.js"

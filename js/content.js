@@ -1,5 +1,142 @@
 const domain = window.location.origin;
 const current_page = window.location.pathname;
+
+function getCurrentCourseId() {
+    const match = current_page.match(/^\/courses\/(\d+)(?:\/|$)/);
+    return match ? parseInt(match[1]) : null;
+}
+
+function getSidebarLayoutMode() {
+    if (current_page.match(/^\/courses\/(\d+)(?:\/|$)/)) return "course";
+    if (current_page === "/courses" || current_page === "/courses/") return "dash";
+    if (current_page === "/" || current_page === "") return "dash";
+    return "dash";
+}
+
+function isGradesPage() {
+    return /^\/courses\/\d+\/grades(?:\/|$)/.test(current_page);
+}
+
+function isCoursesIndexPage() {
+    return /^\/courses\/?$/.test(current_page);
+}
+
+function isGroupsIndexPage() {
+    return /^\/groups\/?$/.test(current_page);
+}
+
+function isConversationsPage() {
+    return /^\/conversations(?:\/|$)/.test(current_page);
+}
+
+function getSubmissionAssignmentLink() {
+    const match = current_page.match(/^\/courses\/(\d+)\/assignments\/(\d+)\/submissions\/(\d+)(?:\/|$)/);
+    if (!match) return null;
+    return `${domain}/courses/${match[1]}/assignments/${match[2]}/`;
+}
+
+let submissionPageButtonObserver = null;
+
+function addSubmissionPageButton() {
+    const assignmentLink = getSubmissionAssignmentLink();
+    if (!assignmentLink) return;
+    const content = document.getElementById("content");
+    if (!content || content.querySelector("#canvasrefined-assignment-return")) return;
+
+    makeElement("a", content, {
+        id: "canvasrefined-assignment-return",
+        className: "canvasrefined-custom-btn",
+        href: assignmentLink,
+        textContent: "Back to Assignment",
+        style: "display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;margin:0 0 12px 0;padding:10px 14px;text-decoration:none;font-weight:700;",
+    }, true);
+}
+
+let sequenceFooterObserver = null;
+
+function isAssignmentPage() {
+    return /^\/courses\/\d+\/assignments(?:\/\d+)?(?:\/|$)/.test(current_page);
+}
+
+function removeSequenceFooter() {
+    if (!isAssignmentPage()) return false;
+    const sequenceFooter = document.getElementById("sequence_footer");
+    if (!sequenceFooter) return false;
+    sequenceFooter.remove();
+    return true;
+}
+
+function watchSequenceFooter() {
+    if (!isAssignmentPage()) return;
+    if (removeSequenceFooter()) return;
+    if (sequenceFooterObserver) return;
+
+    sequenceFooterObserver = new MutationObserver(() => {
+        if (removeSequenceFooter() && sequenceFooterObserver) {
+            sequenceFooterObserver.disconnect();
+            sequenceFooterObserver = null;
+        }
+    });
+
+    sequenceFooterObserver.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => {
+        if (sequenceFooterObserver) {
+            sequenceFooterObserver.disconnect();
+            sequenceFooterObserver = null;
+        }
+    }, 10000);
+}
+
+function ensureSubmissionPageButton() {
+    const assignmentLink = getSubmissionAssignmentLink();
+    if (!assignmentLink) return false;
+    const content = document.getElementById("content");
+    if (!content) return false;
+    if (content.querySelector("#canvasrefined-assignment-return")) return true;
+    addSubmissionPageButton();
+    return Boolean(content.querySelector("#canvasrefined-assignment-return"));
+}
+
+function watchSubmissionPageButton() {
+    if (!getSubmissionAssignmentLink()) return;
+    if (ensureSubmissionPageButton()) return;
+    if (submissionPageButtonObserver) return;
+
+    submissionPageButtonObserver = new MutationObserver(() => {
+        if (ensureSubmissionPageButton() && submissionPageButtonObserver) {
+            submissionPageButtonObserver.disconnect();
+            submissionPageButtonObserver = null;
+        }
+    });
+
+    submissionPageButtonObserver.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => {
+        if (submissionPageButtonObserver) {
+            submissionPageButtonObserver.disconnect();
+            submissionPageButtonObserver = null;
+        }
+    }, 10000);
+}
+
+function getSidebarStateMode(mode = getSidebarLayoutMode()) {
+    return mode === "course" ? "course" : "dashboard";
+}
+
+function getSidebarStateKey(mode = getSidebarLayoutMode()) {
+    return `better_sidebar_expanded_${getSidebarStateMode(mode)}`;
+}
+
+async function getSidebarExpandedState(mode = getSidebarLayoutMode()) {
+    const key = getSidebarStateKey(mode);
+    const storage = await chrome.storage.local.get(key);
+    if (typeof storage[key] === "boolean") return storage[key];
+    return mode === "course";
+}
+
+function setSidebarExpandedState(mode, expanded) {
+    chrome.storage.local.set({ [getSidebarStateKey(mode)]: expanded });
+}
+
 let assignments = null;
 let grades = null;
 let announcements = [];
@@ -8,6 +145,8 @@ let assignmentsDue = [];
 let options = {};
 let timeCheck = null;
 let reminderCheck = null;
+let betterSidebarLoading = false;
+let dashboardReadyTimer = null;
 //let assignmentData = null;
 
 /*
@@ -122,13 +261,13 @@ async function hideReminder(href) {
 
 function createReminder(reminder, location) {
     const remaining = getRelativeDate(new Date(reminder.d));
-    const wrapper = makeElement("div", location, { "className": "bettercanvas-reminder-wrapper" });
-    const container = makeElement("div", wrapper, { "className": "bettercanvas-reminder-container" });
+    const wrapper = makeElement("div", location, { "className": "canvasrefined-reminder-wrapper" });
+    const container = makeElement("div", wrapper, { "className": "canvasrefined-reminder-container" });
     const svg = makeElement("div", container, { "innerHTML": canvas_svg });
-    const content = makeElement("a", container, { "className": "bettercanvas-reminder-content", "href": reminder.h, "target": "_blank" });
-    const title = makeElement("h2", content, { "className": "bettercanvas-reminder-title", "textContent": reminder.t });
-    const due = makeElement("p", content, { "className": "bettercanvas-reminder-due", "textContent": `Assignment due in ${remaining.time}` });
-    const hidebtn = makeElement("btn", wrapper, { "className": "bettercanvas-reminder-hide", "textContent": "x" });
+    const content = makeElement("a", container, { "className": "canvasrefined-reminder-content", "href": reminder.h, "target": "_blank" });
+    const title = makeElement("h2", content, { "className": "canvasrefined-reminder-title", "textContent": reminder.t });
+    const due = makeElement("p", content, { "className": "canvasrefined-reminder-due", "textContent": `Assignment due in ${remaining.time}` });
+    const hidebtn = makeElement("btn", wrapper, { "className": "canvasrefined-reminder-hide", "textContent": "x" });
     hidebtn.addEventListener("click", () => {
         hideReminder(reminder.h);
         wrapper.remove();
@@ -139,10 +278,10 @@ function createReminder(reminder, location) {
 async function reminderWatch() {
     const sync = await chrome.storage.sync.get("remind");
     if (sync["remind"] !== true) {
-        if (document.getElementById("bettercanvas-reminders")) document.getElementById("bettercanvas-reminders").style.display = "none";
+        if (document.getElementById("canvasrefined-reminders")) document.getElementById("canvasrefined-reminders").style.display = "none";
         return;
     }
-    const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+    const container = document.getElementById("canvasrefined-reminders") || makeElement("div", document.body, { "id": "canvasrefined-reminders" });
     container.style.display = "flex";
     container.textContent = "";
     const alertPeriod = 1000 * 60 * 60 * 6; // 6 hours
@@ -178,14 +317,14 @@ function updateReminders() {
 }
 
 function showExampleReminder() {
-    const location = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+    const location = document.getElementById("canvasrefined-reminders") || makeElement("div", document.body, { "id": "canvasrefined-reminders" });
     if (options.remind !== true) {
         location.remove();
         return;
     }
     location.textContent = "";
     const example = createReminder({ "d": new Date(), "t": "This is an example reminder", }, location);
-    example.querySelector(".bettercanvas-reminder-due").textContent = "This notification will pop up in other pages to remind you of incomplete assignments that are due in less than 6 hours." /*It will notify again at 2 hours if the 'Remind 2x' option is on."*/;
+    example.querySelector(".canvasrefined-reminder-due").textContent = "This notification will pop up in other pages to remind you of incomplete assignments that are due in less than 6 hours." /*It will notify again at 2 hours if the 'Remind 2x' option is on."*/;
 }
 
 // async function ScheduledReminderCheck() {
@@ -195,7 +334,7 @@ function showExampleReminder() {
 //     if (options.scheduledReminderTime) {
 //         let [hour, minute] = options.scheduledReminderTime.split(":");
 //         if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
-//             const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+//             const container = document.getElementById("canvasrefined-reminders") || makeElement("div", document.body, { "id": "canvasrefined-reminders" });
 //             container.style.display = "flex";
 //             container.textContent = "";
 //             const storage = await chrome.storage.sync.get("reminders");
@@ -252,6 +391,11 @@ function isDomainCanvasPage() {
 function startExtension() {
     toggleDarkMode();
 
+    chrome.storage.sync.get(["better_sidebar", "sidebar_scale"], result => {
+        options = { ...options, ...result };
+        ensureBetterSidebar();
+    });
+
     chrome.storage.sync.get(null, result => {
         options = { ...options, ...result };
         toggleAutoDarkMode();
@@ -263,10 +407,13 @@ function startExtension() {
         changeFavicon();
         updateReminders();
         applyCustomBackground();
+        ensureBetterSidebar();
+        watchSequenceFooter();
+        watchSubmissionPageButton();
 
         //getClassAverages();
         
-        setTimeout(() => document.getElementById("footer").remove(), 800);
+        setTimeout(() => document.getElementById("footer")?.remove(), 800);
         setTimeout(() => runDarkModeFixer(false), 800);
         setTimeout(() => runDarkModeFixer(false), 4500);
     });
@@ -275,7 +422,7 @@ function startExtension() {
 
     chrome.storage.onChanged.addListener(applyOptionsChanges);
 
-    console.log("Better Canvas - running");
+    console.log("Canvas Refined - running");
 }
 
 function applyOptionsChanges(changes) {
@@ -316,7 +463,7 @@ function applyOptionsChanges(changes) {
 			case "num_assignments":
 				if (!assignments) getAssignments();
 				if (
-					document.querySelectorAll(".bettercanvas-card-assignment")
+					document.querySelectorAll(".canvasrefined-card-assignment")
 						.length === 0
 				)
 					setupCardAssignments();
@@ -346,7 +493,7 @@ function applyOptionsChanges(changes) {
 				moreAssignmentCount = 0;
 				// loadBetterTodo();
 				clearTodoList();
-				createTodoSections(document.querySelector("#bettercanvas-todo-list"));
+				createTodoSections(document.querySelector("#canvasrefined-todo-list"));
 				break;
 			case "gpa_calc":
 			case "gpa_calc_prepend":
@@ -396,50 +543,261 @@ function applyOptionsChanges(changes) {
 				} else {
 					window.location.reload();
 				}
+                    break;
+                case "todo_progress_rings": {
+                    // toggle progress rings immediately
+                    const placeholder = document.getElementById("better-todo-progress-placeholder");
+                    if (!placeholder) break;
+                    if (changes[key].newValue === true || changes[key].newValue === undefined) {
+                        if (typeof assignments?.then === 'function') {
+                            assignments.then(data => {
+                                const courseId = getCurrentCourseId();
+                                const scopedData = courseId
+                                    ? data.filter(item => {
+                                        const itemCourseId = parseInt(item.course_id || item.context_id || item?.plannable?.course_id);
+                                        return itemCourseId === courseId;
+                                    })
+                                    : data;
+                                renderProgressRings(placeholder, scopedData);
+                            });
+                        }
+                    } else {
+                        placeholder.innerHTML = "";
+                    }
+                    break;
+                }
 			case "better_sidebar":
-				if (options.better_sidebar) setupBetterSidebar();
-				// else window.location.reload();
-				else {
-					document.getElementById("header").style.display = "block";
-					document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "54px");
-					document.getElementById("better-sidebar-container").remove();
-				}
+                if (options.better_sidebar) {
+                    ensureBetterSidebar();
+                } else {
+                    resetBetterSidebarLayout();
+                }
 				break;
+            case "sidebar_scale": {
+                const existingSidebar = document.getElementById("better-sidebar-container");
+                if (existingSidebar) {
+                    const expander = existingSidebar.querySelector(".better-sidebar-expander");
+                    updateSidebar(existingSidebar.dataset.expanded === "true", existingSidebar, expander);
+                }
+                break;
+            }
 		}
     });
 }
 
+function resetBetterSidebarLayout() {
+    document.getElementById("header")?.style.removeProperty("display");
+    document.querySelector(".ic-Layout-wrapper")?.style.removeProperty("margin-left");
+    document.querySelector("#main")?.style.removeProperty("margin-left");
+    document.querySelector(".ic-app-nav-toggle-and-crumbs")?.style.removeProperty("display");
+    document.getElementById("not_right_side")?.style.removeProperty("display");
+    document.getElementById("not_right_side")?.style.removeProperty("flex");
+    document.getElementById("not_right_side")?.style.removeProperty("min-width");
+    document.getElementById("right-side-wrapper")?.style.removeProperty("flex");
+    document.getElementById("right-side-wrapper")?.style.removeProperty("width");
+    document.getElementById("right-side-wrapper")?.style.removeProperty("max-width");
+    document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("display");
+    document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("align-items");
+    document.querySelector(".ic-Layout-contentWrapper")?.style.removeProperty("min-width");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("flex");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("min-width");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("margin");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("padding");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("background");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("backdrop-filter");
+    document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("-webkit-backdrop-filter");
+    document.getElementById("left-side")?.style.removeProperty("display");
+    document.getElementById("better-sidebar-container")?.remove();
+    clearBetterSidebarLayoutFix();
+}
+
+function ensureBetterSidebar() {
+    if (!options.better_sidebar) return;
+    if (document.querySelector("#better-sidebar-container")) return;
+    if (!document.querySelector("#wrapper") || !document.querySelector(".ic-Layout-contentWrapper")) return;
+    setupBetterSidebar(getSidebarLayoutMode());
+}
+
 function applyCustomBackground() {
     // let style = document.querySelector("#DashboardCard_Container")
-    let style = document.querySelector("#bettercanvas-background") || document.createElement('style');
-    style.id = "bettercanvas-background";
+    let style = document.querySelector("#canvasrefined-background") || document.createElement('style');
+    style.id = "canvasrefined-background";
     
     if (options.customBackgroundLink && options.customBackgroundLink !== "") {
         style.textContent = `
         #wrapper {
             background-image: url('${options.customBackgroundLink}') !important;
             background-size: cover !important;
-            background-attachment: fixed !important; 
+            background-attachment: fixed !important;
         }
-        .ic-Dashboard-header__layout { 
-            background: none !important;  
-            backdrop-filter: blur(10px) !important;
+        .ic-Dashboard-header__layout {
+            background: none !important;
+            /* backdrop-filter: blur(10px) !important; */
             border-radius: 5px;
         }
         #right-side-wrapper {
-            background: color-mix(in srgb, var(--bcbackground-0) 45%, transparent) !important;
-            backdrop-filter: blur(10px) !important;
+            // backdrop-filter: blur(10px) !important;
+            background-color: color-mix(in srgb, var(--bcbackground-0), transparent 35%);
             border-radius: 5px;
         }
-        .bettercanvas-gpa-card {background: var(--bcbackground-0) !important;}
-        .bettercanvas-gpa {background: var(--bcbackground-0) !important;}
-        .ic-DashboardCard {background: var(--bcbackground-0) !important;}`; // todo: liquid glass?
+        .header-bar {
+            background: none !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+        .item-group-condensed,
+        .item-group-container {
+            background: transparent !important;
+            /* backdrop-filter: blur(14px) saturate(120%) !important;
+               -webkit-backdrop-filter: blur(14px) saturate(120%) !important; */
+            border-radius: 12px !important;
+            border: 1px solid color-mix(in srgb, var(--bcborders) 75%, transparent) !important;
+            /* box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important; */
+        }
+        #context_modules_sortable_container {
+            border: none !important;
+            background: none !important;
+            padding: 0 !important;
+            /* backdrop-filter: blur(0) !important; */
+        }
+        .item-group-condensed .ig-header,
+        .item-group-condensed .ig-row,
+        .item-group-container .ig-header,
+        .item-group-container .ig-row,
+        .item-group-condensed .header,
+        .item-group-container .header {
+            background: transparent !important;
+        }
+        .item-group-condensed .ig-header.header,
+        .item-group-container .ig-header.header {
+            background: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+        }
+        #assignments.ui-tabs-panel {
+            background-color: color-mix(in srgb, var(--bcbackground-0), transparent 35%) !important;
+            border-radius: 5px !important;
+        }
+        #assignments {
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+        ${isCoursesIndexPage() ? `
+        #content {
+            margin: 36px 48px 48px !important;
+            padding: 10px !important;
+            background-color: color-mix(in srgb, var(--bcbackground-0), transparent 35%) !important;
+            border-radius: 5px !important;
+            box-sizing: border-box !important;
+        }
+        ` : ""}
+        ${isGroupsIndexPage() ? `
+        #content {
+            margin: 36px 48px 48px !important;
+            padding: 10px !important;
+            background-color: color-mix(in srgb, var(--bcbackground-0), transparent 35%) !important;
+            border-radius: 5px !important;
+            box-sizing: border-box !important;
+        }
+        ` : ""}
+        ${isConversationsPage() ? `
+        .css-1nh4pc4-view-flexItem {
+            background-color: color-mix(in srgb, var(--bcbackground-0), transparent 35%) !important;
+            border-radius: 5px !important;
+            box-sizing: border-box !important;
+        }
+        .css-1nh4pc4-view-flexItem svg,
+        .css-1nh4pc4-view-flexItem svg * {
+            fill: currentColor !important;
+            stroke: currentColor !important;
+            color: var(--bctext-0) !important;
+        }
+        ` : ""}
+        .item-group-condensed .ig-row.ig-published.no-estimated-duration {
+            color: var(--bctext-1) !important;
+            border: 1px solid color-mix(in srgb, var(--bcborders) 60%, transparent) !important;
+            border-radius: 0 !important;
+            padding: 10px 12px !important;
+        }
+        .item-group-condensed .context_module_item,
+        .item-group-container .context_module_item {
+            background: transparent !important;
+            /* backdrop-filter: blur(10px) saturate(115%) !important;
+               -webkit-backdrop-filter: blur(10px) saturate(115%) !important; */
+        }
+        .item-group-condensed .context_module_item:hover,
+        .item-group-container .context_module_item:hover,
+        .item-group-condensed .context_module_item.context_module_item_hover,
+        .item-group-container .context_module_item.context_module_item_hover {
+            background: transparent !important;
+            border-radius: 10px !important;
+        }
+        .item-group-container {
+            background: transparent !important;
+            border-radius: 12px !important;
+            border: 1px solid color-mix(in srgb, var(--bcborders) 75%, transparent) !important;
+        }
+        .ig-header {
+            /* backdrop-filter: blur(10px) !important; */
+        }
+        .item-group-condensed.context_module,
+        .item-group-condensed.context_module_item,
+        .item-group-condensed[class~="context_module"] {
+            margin-bottom: 10px !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
+        .item-group-condensed .ig-header.header,
+        .item-group-container .ig-header.header {
+            padding-top: 0 !important;
+        }
+
+        /* Apply backdrop blur only to module panels, not to all headers */
+        .item-group-condensed.context_module,
+        .item-group-condensed.context_module_item,
+        .item-group-condensed.context_module:hover,
+        .item-group-condensed.context_module_item:hover,
+        .item-group-condensed.context_module.context_module_item_hover,
+        .item-group-condensed.context_module_item.context_module_item_hover {
+            backdrop-filter: blur(5px) !important;
+            -webkit-backdrop-filter: blur(5px) !important;
+        }
+        .canvasrefined-gpa-card,
+        .canvasrefined-gpa,
+        .ic-DashboardCard {
+            background: var(--bcbackground-0) !important;
+        }
+        tr.student_assignment.assignment_graded.editable > * {
+            border:none!important
+        }`; 
+        // TODO: liquid glass?
     }
     
     document.documentElement.appendChild(style);
 }
 function clearCustomBackground() {
-	let style = document.querySelector("#bettercanvas-background");
+	let style = document.querySelector("#canvasrefined-background");
+	if (style) style.remove();
+}
+
+function applyBetterSidebarLayoutFix() {
+    let style = document.querySelector("#canvasrefined-sidebar-layout-fix") || document.createElement("style");
+    style.id = "canvasrefined-sidebar-layout-fix";
+    style.textContent = `
+        #wrapper,
+        .ic-Layout-wrapper,
+        #main {
+            margin-left: 0 !important;
+        }
+    `;
+    document.documentElement.appendChild(style);
+}
+
+function clearBetterSidebarLayoutFix() {
+	let style = document.querySelector("#canvasrefined-sidebar-layout-fix");
 	if (style) style.remove();
 }
 
@@ -457,49 +815,45 @@ function resetTimer() {
 }
 
 function checkDashboardReady() {
-	let callback;
-    if (current_page == "/" || current_page == "") {
-		console.log("I am dashboard");
-		callback = (mutationList) => {
-			for (const mutation of mutationList) {
-				if (mutation.type === "childList") {
-					if (mutation.target == document.querySelector("#DashboardCard_Container")) {
-						let cards = document.querySelectorAll('.ic-DashboardCard');
-						changeGradientCards();
-						setupCardAssignments();
-						loadCardAssignments();
-						customizeCards(cards);
-						insertGrades();
-						loadDashboardNotes();
-						setupGPACalc();
-						showUpdateMsg();
-					} else if (mutation.target == document.querySelector('#right-side')) {
-						if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
-							setupBetterTodo();
-							setupBetterSidebar();
-							// loadBetterTodo();
-						}
-					}
-				}
-			}
-		};
-	}
-	// else return;
-	else { // all outside dashboard
-		console.log("I am outside", current_page);
-		if (current_page.match(/^\/courses\/(\d+)\/?$/)) { // course main pages
-			callback = (mutationList) => {
-				for (const mutation of mutationList) {
-					if (mutation.target == document.querySelector('#right-side')) {
-						if (!mutation.target.querySelector(".bettercanvas-todosidebar")) {
-							setupBetterTodo();
-							setupBetterSidebar("course");
-						}
-					}
-				}
-			};
-		}
-	}
+    const callback = (mutationList) => {
+        for (const mutation of mutationList) {
+            if (mutation.type !== "childList") continue;
+            if (current_page == "/" || current_page == "" || current_page.match(/^\/courses\/(\d+)(?:\/|$)/)) {
+                if (dashboardReadyTimer) continue;
+                dashboardReadyTimer = setTimeout(() => {
+                    dashboardReadyTimer = null;
+
+                    const dashboardCards = document.querySelector("#DashboardCard_Container");
+                    if (dashboardCards) {
+                        let cards = document.querySelectorAll(".ic-DashboardCard");
+                        changeGradientCards();
+                        setupCardAssignments();
+                        loadCardAssignments();
+                        customizeCards(cards);
+                        insertGrades();
+                        loadDashboardNotes();
+                        setupGPACalc();
+                        showUpdateMsg();
+                    }
+
+                    const rightSide = document.querySelector("#right-side");
+                    if (rightSide && !rightSide.querySelector(".canvasrefined-todosidebar")) {
+                        setupBetterTodo();
+                        setupBetterSidebar(getSidebarLayoutMode());
+                    }
+
+                    if (options.better_sidebar) {
+                        ensureBetterSidebar();
+                    }
+                }, 0);
+            } else {
+                console.log("I am outside", current_page);
+                if (options.better_sidebar) {
+                    ensureBetterSidebar();
+                }
+            }
+        }
+    };
 
     const observer = new MutationObserver(callback);
     observer.observe(document.querySelector('html'), { childList: true, subtree: true });
@@ -769,17 +1123,17 @@ Better todo list
 // }
 
 function createTodoCreateBtn(location) {
-    let confirmButton = makeElement("button", location, { "className": "bettercanvas-custom-btn", "textContent": "Create" });
+    let confirmButton = makeElement("button", location, { "className": "canvasrefined-custom-btn", "textContent": "Create" });
     confirmButton.addEventListener("click", () => {
         chrome.storage.sync.get("custom_assignments_overflow", overflow => {
             chrome.storage.sync.get(overflow["custom_assignments_overflow"], storage => {
-                let course_id = parseInt(location.querySelector("#bettercanvas-custom-course").value);
+                let course_id = parseInt(location.querySelector("#canvasrefined-custom-course").value);
 
                 const assignment = {
                     "plannable_id": new Date().getTime(),
-                    "context_name": options.custom_cards[location.querySelector("#bettercanvas-custom-course").value].default,
-                    "plannable": { "title": location.querySelector("#bettercanvas-custom-name").value },
-                    "plannable_date": location.querySelector("#bettercanvas-custom-date").value + "T" + location.querySelector("#bettercanvas-custom-time").value + ":00",
+                    "context_name": options.custom_cards[location.querySelector("#canvasrefined-custom-course").value].default,
+                    "plannable": { "title": location.querySelector("#canvasrefined-custom-name").value },
+                    "plannable_date": location.querySelector("#canvasrefined-custom-date").value + "T" + location.querySelector("#canvasrefined-custom-time").value + ":00",
                     "planner_override": { "marked_complete": false, "custom": true },
                     "plannable_type": "assignment",
                     "submissions": { "submitted": false },
@@ -791,7 +1145,7 @@ function createTodoCreateBtn(location) {
 
                 let found = false;
                 let reload = () => {
-                    location.classList.toggle("bettercanvas-custom-open");
+                    location.classList.toggle("canvasrefined-custom-open");
                     loadBetterTodo();
                     loadCardAssignments();
                 }
@@ -832,27 +1186,27 @@ function createTodoCreateBtn(location) {
 //     let todoHeader = makeElement("h2", location, { "className": "todo-list-header", "style": "display: flex; align-items:center; justify-content:space-between;" });
 //     //todoHeader.style = "display: flex; align-items:center; justify-content:space-between;";
 //     if (!options.custom_cards || Object.keys(options.custom_cards).length === 0) return;
-//     let addFillout = makeElement("div", location, { "className": "bettercanvas-add-assignment" });
+//     let addFillout = makeElement("div", location, { "className": "canvasrefined-add-assignment" });
 //     let now = new Date();
 //     let year = now.getFullYear();
 //     let month = now.getMonth() + 1;
 //     let day = now.getDate();
 //     month = month < 10 ? "0" + month : month;
 //     day = day < 10 ? "0" + day : day;
-//     addFillout.innerHTML = '<input type="text" placeholder="Name" id="bettercanvas-custom-name" class="bettercanvas-custom-input"></input><select id="bettercanvas-custom-course" class="bettercanvas-custom-input"><option value="" disabled selected>Select course</option></select><div style="display: flex;gap:5px"><input type="date" id="bettercanvas-custom-date"  class="bettercanvas-custom-input"></input><input type="time" id="bettercanvas-custom-time"  class="bettercanvas-custom-input" value="23:59"></input></div>';
-//     addFillout.querySelector("#bettercanvas-custom-date").value = year + "-" + month + "-" + day;
-//     let selectCourse = document.querySelector("#bettercanvas-custom-course");
+//     addFillout.innerHTML = '<input type="text" placeholder="Name" id="canvasrefined-custom-name" class="canvasrefined-custom-input"></input><select id="canvasrefined-custom-course" class="canvasrefined-custom-input"><option value="" disabled selected>Select course</option></select><div style="display: flex;gap:5px"><input type="date" id="canvasrefined-custom-date"  class="canvasrefined-custom-input"></input><input type="time" id="canvasrefined-custom-time"  class="canvasrefined-custom-input" value="23:59"></input></div>';
+//     addFillout.querySelector("#canvasrefined-custom-date").value = year + "-" + month + "-" + day;
+//     let selectCourse = document.querySelector("#canvasrefined-custom-course");
 //     Object.keys(options.custom_cards).forEach(id => {
 //         let card = options.custom_cards[id];
-//         let courseName = makeElement("option", selectCourse, { "className": "bettercanvas-select-course-option", "textContent": card.default });
+//         let courseName = makeElement("option", selectCourse, { "className": "canvasrefined-select-course-option", "textContent": card.default });
 //         courseName.value = id;
 //     });
 
 //     createTodoCreateBtn(addFillout);
-//     let headerText = makeElement("span", todoHeader, { "className": "bettercanvas-todo-header", "textContent": "To Do" });
-//     let addButton = makeElement("button", todoHeader, { "className": "bettercanvas-custom-btn", "textContent": "+ Add" });
+//     let headerText = makeElement("span", todoHeader, { "className": "canvasrefined-todo-header", "textContent": "To Do" });
+//     let addButton = makeElement("button", todoHeader, { "className": "canvasrefined-custom-btn", "textContent": "+ Add" });
 //     addButton.addEventListener("click", () => {
-//         addFillout.classList.toggle("bettercanvas-custom-open");
+//         addFillout.classList.toggle("canvasrefined-custom-open");
 //     });
 
 //     headerText.addEventListener("click", () => {
@@ -889,7 +1243,7 @@ function updateIndicator(element) {
 			// btn.style.filter = "none";
 		}
 		else {
-			btn.firstElementChild.style.opacity = ".3";
+			btn.firstElementChild.style.opacity = ".5";
 			// btn.style.filter = "grayscale(100%)";
 		}
 	})
@@ -898,6 +1252,446 @@ function updateIndicator(element) {
 // better todo html
 betterTodoFilter = "tasks";
 let domContainers = {};
+
+function formatDateForInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function formatTimeForInput(date) {
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+}
+
+function renderProgressRings(container, scopedData) {
+    const allAssignments = scopedData.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note"));
+
+    // exclude items older than one month
+    const oneMonthAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
+    const recentAssignments = allAssignments.filter(item => {
+        const dateStr = item.plannable_date || item.todo_date || item.plannable?.due_at || item.plannable?.plannable_date;
+        if (!dateStr) return true; // keep items without a date
+        const ts = Date.parse(dateStr);
+        if (Number.isNaN(ts)) return true;
+        return ts >= oneMonthAgo;
+    });
+    const groups = {};
+    allAssignments.forEach(item => {
+        const cid = String(item.course_id || item.context_id || item.plannable?.course_id || "personal");
+        groups[cid] = groups[cid] || [];
+        groups[cid].push(item);
+    });
+
+    const entries = Object.keys(groups).map(cid => {
+        const arr = groups[cid];
+        const completed = arr.filter(it => (it.submissions?.submitted || it.planner_override?.marked_complete)).length;
+        return { courseId: cid, total: arr.length, completed };
+    }).filter(e => e.total > 0);
+
+    if (!entries.length) {
+        container.innerHTML = "";
+        return;
+    }
+
+    // sort by total desc and limit rings to 6
+    entries.sort((a, b) => b.total - a.total);
+    const shown = entries.slice(0, 6);
+
+    const totalAll = shown.reduce((s, e) => s + e.total, 0);
+    const completedAll = shown.reduce((s, e) => s + e.completed, 0);
+    const percent = totalAll === 0 ? 0 : Math.round((completedAll / totalAll) * 100);
+
+    // build SVG rings with visible gaps and a larger central hole.
+    // calculate available width from the container so the outer ring is slightly inset
+    const containerWidth = (container.clientWidth || 240);
+    const maxSize = Math.min(280, Math.floor(containerWidth * 0.99));
+    const size = maxSize; // svg square size
+    const cx = size / 2;
+    const cy = size / 2;
+    let svgInner = "";
+
+    const ringCount = shown.length;
+    const stroke = 8; // ring thickness (thinner)
+    const gap = 4; // visible gap between rings (reduced)
+    const decrement = stroke + gap; // radius difference per ring ensures gap
+
+    // make outer ring extend closer to container edges by using a small padding
+    const padding = 2;
+    const startRadius = Math.floor((size / 2) - padding - (stroke / 2));
+
+    // ensure radii stay positive; if too small, reduce stroke/gap
+    const minCenterRadius = 28; // minimum desired central hole radius
+    const requiredSpace = (ringCount - 1) * decrement + stroke / 2 + minCenterRadius;
+    let adjustFactor = 1;
+    if (requiredSpace > startRadius) {
+        // scale down decrement to fit
+        adjustFactor = (startRadius - minCenterRadius - stroke / 2) / Math.max(1, (ringCount - 1) * decrement);
+    }
+
+    shown.forEach((entry, idx) => {
+        const effectiveDecrement = Math.max(1, Math.floor(decrement * adjustFactor));
+        const radius = startRadius - idx * effectiveDecrement;
+        if (radius <= 0) return;
+        const circumference = 2 * Math.PI * radius;
+        const prog = entry.total === 0 ? 0 : (entry.completed / entry.total);
+        const color = options.custom_cards_3?.[String(entry.courseId)]?.color || options.custom_cards_3?.[entry.courseId]?.color || `hsl(${(idx * 60) % 360} 70% 50%)`;
+
+        // background ring (faded course color)
+        svgInner += `<circle cx='${cx}' cy='${cy}' r='${radius}' stroke='${color}' stroke-opacity='0.25' stroke-width='${stroke}' fill='none'></circle>`;
+        // progress ring (rotate -90 to start at top) - initialize empty and animate to target
+        const dasharrayVal = circumference.toFixed(3);
+        const dashoffsetTarget = (circumference * (1 - prog)).toFixed(3);
+        // start with full offset (empty) and store target in data attribute; we'll animate after inserting into DOM
+        svgInner += `<circle class='canvasrefined-progress-ring' cx='${cx}' cy='${cy}' r='${radius}' stroke='${color}' stroke-width='${stroke}' fill='none' stroke-linecap='round' transform='rotate(-90 ${cx} ${cy})' stroke-dasharray='${dasharrayVal}' stroke-dashoffset='${dasharrayVal}' data-target='${dashoffsetTarget}' style='transition: stroke-dashoffset .8s cubic-bezier(.2,.9,.2,1), opacity .3s ease;'></circle>`;
+    });
+
+    // center overlay text positioned inside the hole
+    // Reuse existing elements when possible to avoid DOM replacement flicker
+    let wrapper = container.querySelector('.canvasrefined-progress-wrapper');
+    if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'canvasrefined-progress-wrapper';
+        wrapper.style.display = 'flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.position = 'relative';
+        container.appendChild(wrapper);
+    }
+
+    // svg container
+    let svg = wrapper.querySelector('svg.canvasrefined-progress-svg');
+    if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'canvasrefined-progress-svg');
+        svg.setAttribute('width', String(size));
+        svg.setAttribute('height', String(size));
+        svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+        svg.style.display = 'block';
+        wrapper.appendChild(svg);
+    } else {
+        svg.setAttribute('width', String(size));
+        svg.setAttribute('height', String(size));
+        svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+    }
+
+    // ensure overlay text exists
+    let overlay = wrapper.querySelector('.canvasrefined-progress-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'canvasrefined-progress-overlay';
+        overlay.style.position = 'absolute';
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.pointerEvents = 'none';
+        const textWrap = document.createElement('div');
+        textWrap.style.textAlign = 'center';
+        textWrap.style.color = 'var(--bctext-0)';
+        textWrap.innerHTML = `<div class='canvasrefined-progress-percent' style='font-weight:700;font-size:20px;line-height:1;'>${percent}%</div><div class='canvasrefined-progress-count' style='font-size:12px;margin-top:4px;'>${completedAll}/${totalAll} done</div>`;
+        overlay.appendChild(textWrap);
+        wrapper.appendChild(overlay);
+    } else {
+        const pc = overlay.querySelector('.canvasrefined-progress-percent');
+        const cnt = overlay.querySelector('.canvasrefined-progress-count');
+        if (pc) pc.textContent = `${percent}%`;
+        if (cnt) cnt.textContent = `${completedAll}/${totalAll} done`;
+    }
+
+    // Update or create rings in-place
+    const existingBg = svg.querySelectorAll('circle.canvasrefined-ring-bg');
+    const existingFg = svg.querySelectorAll('circle.canvasrefined-progress-ring');
+
+    // reuse or create circles per shown entry
+    shown.forEach((entry, idx) => {
+        const radius = startRadius - idx * Math.max(1, Math.floor(decrement * adjustFactor));
+        const circumference = 2 * Math.PI * radius;
+        const prog = entry.total === 0 ? 0 : (entry.completed / entry.total);
+        const color = options.custom_cards_3?.[String(entry.courseId)]?.color || options.custom_cards_3?.[entry.courseId]?.color || `hsl(${(idx * 60) % 360} 70% 50%)`;
+
+        // background circle
+        let bg = svg.querySelector(`circle.canvasrefined-ring-bg[data-idx='${idx}']`);
+        if (!bg) {
+            bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            bg.classList.add('canvasrefined-ring-bg');
+            bg.setAttribute('data-idx', String(idx));
+            svg.appendChild(bg);
+        }
+        bg.setAttribute('cx', String(cx));
+        bg.setAttribute('cy', String(cy));
+        bg.setAttribute('r', String(radius));
+        bg.setAttribute('stroke', color);
+        bg.setAttribute('stroke-opacity', '0.25');
+        bg.setAttribute('stroke-width', String(stroke));
+        bg.setAttribute('fill', 'none');
+
+        // foreground (progress) circle
+        let fg = svg.querySelector(`circle.canvasrefined-progress-ring[data-idx='${idx}']`);
+        const dasharrayVal = circumference.toFixed(3);
+        const dashoffsetTarget = (circumference * (1 - prog)).toFixed(3);
+        if (!fg) {
+            fg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            fg.classList.add('canvasrefined-progress-ring');
+            fg.setAttribute('data-idx', String(idx));
+            fg.setAttribute('stroke-linecap', 'round');
+            fg.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+            fg.setAttribute('stroke-dasharray', dasharrayVal);
+            fg.setAttribute('stroke-dashoffset', dasharrayVal); // start empty
+            fg.style.transition = 'stroke-dashoffset .8s cubic-bezier(.2,.9,.2,1), opacity .3s ease';
+            svg.appendChild(fg);
+        }
+        fg.setAttribute('cx', String(cx));
+        fg.setAttribute('cy', String(cy));
+        fg.setAttribute('r', String(radius));
+        fg.setAttribute('stroke', color);
+        fg.setAttribute('stroke-width', String(stroke));
+        fg.setAttribute('fill', 'none');
+        fg.setAttribute('stroke-dasharray', dasharrayVal);
+        fg.setAttribute('data-target', dashoffsetTarget);
+
+        // request animation frame to set dashoffset to target (triggers transition)
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                fg.setAttribute('stroke-dashoffset', dashoffsetTarget);
+            });
+        });
+    });
+
+    // remove any extra existing circles
+    const maxIdx = shown.length - 1;
+    svg.querySelectorAll('circle.canvasrefined-ring-bg, circle.canvasrefined-progress-ring').forEach(c => {
+        const idx = parseInt(c.getAttribute('data-idx'));
+        if (Number.isNaN(idx) || idx > maxIdx) c.remove();
+    });
+}
+
+function buildPlannerNotePayload(form) {
+    const title = form.querySelector("#better-todo-new-task-title")?.value?.trim();
+    const details = form.querySelector("#better-todo-new-task-details")?.value?.trim();
+    const courseIdRaw = form.querySelector("#better-todo-new-task-course")?.value;
+    const dateValue = form.querySelector("#better-todo-new-task-date")?.value;
+    const timeValue = form.querySelector("#better-todo-new-task-time")?.value;
+
+    if (!title) {
+        throw new Error("Task title is required.");
+    }
+
+    if (!dateValue || !timeValue) {
+        throw new Error("Please choose both a date and time.");
+    }
+
+    const localDateTime = new Date(`${dateValue}T${timeValue}:00`);
+    if (Number.isNaN(localDateTime.getTime())) {
+        throw new Error("Invalid task date.");
+    }
+
+    return {
+        title,
+        details,
+        courseId: courseIdRaw ? parseInt(courseIdRaw) : null,
+        // Canvas accepts local timestamp strings more reliably than UTC ISO strings for planner notes.
+        todoDate: `${dateValue}T${timeValue}:00`,
+    };
+}
+
+async function createCanvasPlannerNote(payload) {
+    const csrfToken = CSRFtoken();
+    const plannerNote = {
+        title: payload.title,
+        todo_date: payload.todoDate,
+    };
+    if (payload.details) plannerNote.details = payload.details;
+    if (payload.courseId) plannerNote.course_id = payload.courseId;
+
+    const attempts = [
+        {
+            headers: {
+                "content-type": "application/json",
+                "accept": "application/json",
+                "X-CSRF-Token": csrfToken,
+            },
+            body: JSON.stringify({ planner_note: plannerNote }),
+        },
+        {
+            headers: {
+                "content-type": "application/json",
+                "accept": "application/json",
+                "X-CSRF-Token": csrfToken,
+            },
+            body: JSON.stringify(plannerNote),
+        },
+        {
+            headers: {
+                "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "accept": "application/json",
+                "X-CSRF-Token": csrfToken,
+            },
+            body: (() => {
+                const formBody = new URLSearchParams();
+                formBody.set("planner_note[title]", plannerNote.title);
+                formBody.set("planner_note[todo_date]", plannerNote.todo_date);
+                if (plannerNote.details) formBody.set("planner_note[details]", plannerNote.details);
+                if (plannerNote.course_id) formBody.set("planner_note[course_id]", plannerNote.course_id);
+                return formBody.toString();
+            })(),
+        },
+    ];
+
+    let lastError = "Canvas rejected task creation.";
+    for (const attempt of attempts) {
+        const response = await fetch(domain + "/api/v1/planner_notes", {
+            method: "POST",
+            headers: attempt.headers,
+            body: attempt.body,
+        });
+
+        if (response.status === 200 || response.status === 201) {
+            return response.json();
+        }
+
+        try {
+            const errData = await response.json();
+            if (errData?.errors?.length) {
+                lastError = errData.errors.join(" ");
+            } else if (errData?.message) {
+                lastError = errData.message;
+            }
+        } catch (_) {
+            // Keep prior error text when body is not JSON.
+        }
+    }
+
+    throw new Error(lastError || "Canvas rejected task creation.");
+}
+
+function fillTaskCourseOptions(courseSelect) {
+    const cards = options.custom_cards || {};
+    const courseColors = options.custom_cards_3 || {};
+    const currentCourseId = getCurrentCourseId();
+    const entries = Object.entries(cards)
+        .map(([id, card]) => ({
+            id,
+            label: card?.default || `Course ${id}`,
+            color:
+                courseColors?.[String(id)]?.color ??
+                courseColors?.[id]?.color ??
+                "#c7cdd1",
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+    courseSelect.innerHTML = '<option value="">Personal task</option>';
+    courseSelect.options[0].dataset.color = "#c7cdd1";
+    entries.forEach(entry => {
+        const option = makeElement("option", courseSelect, {
+            value: entry.id,
+            textContent: entry.label,
+        });
+        option.dataset.color = entry.color;
+        option.style.color = entry.color;
+        if (currentCourseId && String(currentCourseId) === String(entry.id)) {
+            option.selected = true;
+        }
+    });
+}
+
+function updateTaskCourseSelectColor(courseSelect) {
+    const selectedOption = courseSelect?.options?.[courseSelect.selectedIndex];
+    const color = selectedOption?.dataset?.color || "#c7cdd1";
+    courseSelect.style.borderLeft = `4px solid ${color}`;
+    courseSelect.style.paddingLeft = "8px";
+}
+
+function ensureTodoTaskMenu(location, feedbackElement) {
+    let actionsRow = location.querySelector("#better-todo-actions-row");
+
+    if (!actionsRow) {
+        actionsRow = makeElement("div", location, {
+            id: "better-todo-actions-row",
+            style: "display:flex;flex-direction:column;gap:8px;margin-top:14px;",
+        });
+
+        const addTaskButton = makeElement("button", actionsRow, {
+            id: "better-todo-add-task-btn",
+            className: "canvasrefined-custom-btn",
+            textContent: "+ Add Task",
+            style: "width:100%;padding:6px 8px;cursor:pointer;",
+        });
+
+        const menu = makeElement("div", actionsRow, {
+            id: "better-todo-add-task-menu",
+            className: "canvasrefined-add-assignment",
+        });
+
+        menu.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:8px;padding:8px;border:1px solid #c7cdd1;border-radius:6px;background:var(--bcbackground-2);">
+                <input type="text" id="better-todo-new-task-title" class="canvasrefined-custom-input" placeholder="Task title" maxlength="255">
+                <textarea id="better-todo-new-task-details" class="canvasrefined-custom-input" placeholder="Details (optional)" style="min-height:70px;resize:vertical;padding-top:6px;padding-bottom:6px;"></textarea>
+                <select id="better-todo-new-task-course" class="canvasrefined-custom-input"></select>
+                <div style="display:flex;gap:6px;">
+                    <input type="date" id="better-todo-new-task-date" class="canvasrefined-custom-input">
+                    <input type="time" id="better-todo-new-task-time" class="canvasrefined-custom-input">
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <span id="better-todo-add-task-status" style="font-size:12px;color:var(--bctext-0);"></span>
+                    <button id="better-todo-add-task-submit" class="canvasrefined-custom-btn" style="padding:4px 10px;cursor:pointer;" type="button">Create</button>
+                </div>
+            </div>
+        `;
+
+        const today = new Date();
+        menu.querySelector("#better-todo-new-task-date").value = formatDateForInput(today);
+        menu.querySelector("#better-todo-new-task-time").value = formatTimeForInput(today);
+        const courseSelect = menu.querySelector("#better-todo-new-task-course");
+        fillTaskCourseOptions(courseSelect);
+        updateTaskCourseSelectColor(courseSelect);
+        courseSelect.addEventListener("change", () => updateTaskCourseSelectColor(courseSelect));
+
+        addTaskButton.addEventListener("click", () => {
+            menu.classList.toggle("canvasrefined-custom-open");
+        });
+
+        menu.querySelector("#better-todo-add-task-submit").addEventListener("click", async () => {
+            const status = menu.querySelector("#better-todo-add-task-status");
+            const submitButton = menu.querySelector("#better-todo-add-task-submit");
+            status.textContent = "";
+            submitButton.disabled = true;
+
+            try {
+                const payload = buildPlannerNotePayload(menu);
+                await createCanvasPlannerNote(payload);
+                status.textContent = "Task created.";
+                status.style.color = "#198754";
+                menu.querySelector("#better-todo-new-task-title").value = "";
+                menu.querySelector("#better-todo-new-task-details").value = "";
+                menu.classList.remove("canvasrefined-custom-open");
+
+                getAssignments();
+                clearTodoList();
+                createTodoSections(location);
+            } catch (e) {
+                status.textContent = e?.message || "Could not create task.";
+                status.style.color = "#db3754";
+            } finally {
+                submitButton.disabled = false;
+            }
+        });
+    }
+
+    if (feedbackElement) {
+        if (actionsRow.nextSibling !== feedbackElement) {
+            location.insertBefore(actionsRow, feedbackElement);
+        }
+    } else if (actionsRow.parentElement !== location) {
+        location.append(actionsRow);
+    }
+}
+
 async function createTodoSections(location) {
 	if (!location.querySelector("#better-todo-header")) {
 		let header = makeElement("div", location, { id: "better-todo-header" });
@@ -905,10 +1699,13 @@ async function createTodoSections(location) {
 		let today = new Date();
 		today.setHours(0,0,0,0);
 		const todayString = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-		header.innerHTML = `
-			<h2 style="border:none !important;padding: 0">Tasks</h2>
-			<h2 style="border:none !important;padding: 0">${todayString}</h2>
-		`;
+        header.innerHTML = `
+                <h2 style="border:none !important;padding: 0">Tasks</h2>
+                <h2 style="border:none !important;padding: 0">${todayString}</h2>
+            `;
+
+        // placeholder for progress rings above the tab/filter control
+        makeElement("div", location, { id: "better-todo-progress-placeholder", style: "display:flex;justify-content:center;margin-top:8px;" });
 
 		let filterControl = makeElement("div", location, { "id": "better-todo-filter" });
 		filterControl.innerHTML = `
@@ -974,81 +1771,109 @@ async function createTodoSections(location) {
 	}
 	let mainSection = location.querySelector("#better-todo-main");
 	assignments.then(data => {
-		// console.log(data);
-		data.forEach(item => {
-			announcements = data.filter(item => item.plannable_type == "announcement");
-			assignmentsDue = data.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && !item.submissions?.submitted && !item.planner_override?.marked_complete);
-			completed = data.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && (item.submissions?.submitted || item.planner_override?.marked_complete));
-		});
+        const courseId = getCurrentCourseId();
+        const scopedData = courseId
+            ? data.filter(item => {
+                const itemCourseId = parseInt(item.course_id || item.context_id || item?.plannable?.course_id);
+                return itemCourseId === courseId;
+            })
+            : data;
+
+        announcements = scopedData.filter(item => item.plannable_type == "announcement");
+        assignmentsDue = scopedData.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && !item.submissions?.submitted && !item.planner_override?.marked_complete);
+        completed = scopedData.filter(item => (item.plannable_type == "assignment" || item.plannable_type == "planner_note") && (item.submissions?.submitted || item.planner_override?.marked_complete));
 		// console.log("assignments", assignmentsDue);
 		// console.log("announcements", announcements);
 		// console.log("completed", completed);
 
-		if (!document.getElementById("better-todo-announcement-badge")) {
-			let isAnnoucementBadge = 0;
-			announcements.forEach(item => {
-				if (item.plannable.read_state == "unread") {
-					isAnnoucementBadge++;
-					return;
-				}
-			})
-			if (isAnnoucementBadge > 0) {
-				makeElement("div", document.getElementById("better-todo-announcement"), {
-					id: "better-todo-announcement-badge",
-					style: "background-color:#ff0000;width:15px;height:15px;border-radius:50%;font-size:12px;position:absolute;top:-7px;left:16px;display:flex;justify-content:center;align-items:center;", // TODO: theme compatibility
-					innerHTML: `<span style="color:white;">${isAnnoucementBadge}</span>`
-				})
-			}
+        if (document.getElementById("better-todo-announcement-badge")) {
+            document.getElementById("better-todo-announcement-badge").remove();
+        }
+        let isAnnoucementBadge = 0;
+        announcements.forEach(item => {
+            if (item.plannable.read_state == "unread") {
+                isAnnoucementBadge++;
+                return;
+            }
+        })
+        if (isAnnoucementBadge > 0) {
+            makeElement("div", document.getElementById("better-todo-announcement"), {
+                id: "better-todo-announcement-badge",
+                style: "background-color:#ff0000;width:15px;height:15px;border-radius:50%;font-size:12px;position:absolute;top:-7px;left:16px;display:flex;justify-content:center;align-items:center;", // TODO: theme compatibility
+                innerHTML: `<span style="color:white;">${isAnnoucementBadge}</span>`
+            })
 		}
 
 		domContainers = {};
 		const groupKeys = ["-1", "0", "1", "2", "3", "4", "5", "6", "7", "14", "21", "30", "Later", "New", "Seen", "Ungraded", "Graded"];
-		for (const key of groupKeys) {
-			let wrapper = makeElement("div", mainSection, {
-				style: "display:none;margin-top:10px;",
-				className: "better-todo-dueheader",
-			});
-			let label = "";
-			if (key == "Later") label = "Due <strong>Later</strong>";
-			if (key == "-1") label = "<strong>Overdue</strong>";
-			else if (key == "0") label = "Due <strong>Today</strong>";
-			else if (key == "1") label = "Due <strong>Tommorow</strong>";
-			else if (key >= 2 && key < 7) label = "Due <strong>" + key + " days</strong>";
-			else if (key >= 7 && key < 30) label = "Due <strong>" + key/7 + " weeks</strong>";
-			else if (key == "30") label = "Due <strong>1 month</strong>";
-			else label = "<strong>" + key + "</strong>";
-			makeElement("div", wrapper, {
-				innerHTML: "<span>" + label + "</span>",
-				style: "display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--bctext-0);" // TODO: might not be theme compatible
-			})
+        for (const key of groupKeys) {
+            let wrapper = makeElement("div", mainSection, {
+                style: "display:none;margin-top:10px;",
+                className: "better-todo-dueheader",
+            });
+            let label = "";
+            if (key == "Later") label = "Due <strong>Later</strong>";
+            if (key == "-1") label = "<strong>Overdue</strong>";
+            else if (key == "0") label = "Due <strong>Today</strong>";
+            else if (key == "1") label = "Due <strong>Tommorow</strong>";
+            else if (key >= 2 && key < 7) label = "Due <strong>" + key + " days</strong>";
+            else if (key >= 7 && key < 30) label = "Due <strong>" + key/7 + " weeks</strong>";
+            else if (key == "30") label = "Due <strong>1 month</strong>";
+            else label = "<strong>" + key + "</strong>";
+            makeElement("div", wrapper, {
+                innerHTML: "<span>" + label + "</span>",
+                style: "display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--bctext-0);"
+            })
 
-			let listContainer = makeElement("div", wrapper, { className: "todo-group-list" });
-			listContainer.style = "display:flex;flex-direction:column;gap:10px;";
+            let listContainer = makeElement("div", wrapper, { className: "todo-group-list" });
+            listContainer.style = "display:flex;flex-direction:column;gap:10px;";
 
-			domContainers[key] = { wrapper, listContainer };
-		}
+            domContainers[key] = { wrapper, listContainer };
+        }
 
 
-		if (betterTodoFilter == "tasks") {
-			populateAssignments();
-		}
-		if (betterTodoFilter == "announcements") {
-			populateAnnouncements();
-		}
-		if (betterTodoFilter == "completed") {
-			populateAssignments(true);
-		}
+        if (betterTodoFilter == "tasks") {
+            populateAssignments();
+        }
+        if (betterTodoFilter == "announcements") {
+            populateAnnouncements();
+        }
+        if (betterTodoFilter == "completed") {
+            populateAssignments(true);
+        }
 
-		const feedbackElement = document.querySelector(".recent_feedback");
-		if (feedbackElement) {
-			if (options.todo_hide_feedback == true) {
-				feedbackElement.style.display = "none";
-			} else {
-				feedbackElement.style.display = "block";
-			}
-		}
+        const feedbackElement = location.querySelector(".recent_feedback");
 
-		const sidebar = document.getElementById("right-side-wrapper");
+        // populate progress rings placeholder (respect user toggle)
+        const progressPlaceholder = document.getElementById("better-todo-progress-placeholder");
+        if (progressPlaceholder) {
+            if (options.todo_progress_rings === undefined || options.todo_progress_rings === true) {
+                renderProgressRings(progressPlaceholder, scopedData);
+            } else {
+                progressPlaceholder.innerHTML = "";
+            }
+        }
+
+        // Only show the Add Task control on the Assignments (tasks) tab.
+        if (betterTodoFilter === "tasks") {
+            ensureTodoTaskMenu(location, feedbackElement);
+        } else {
+            const existing = location.querySelector("#better-todo-actions-row");
+            if (existing) existing.remove();
+        }
+
+        if (feedbackElement) {
+            if (options.todo_hide_feedback == true) {
+                feedbackElement.style.display = "none";
+            } else {
+                feedbackElement.style.display = "block";
+            }
+        }
+
+        const sidebar = document.getElementById("right-side-wrapper");
+        ensureRightSideWrapperScrollbarHidden();
+        sidebar.style.setProperty("scrollbar-width", "none");
+        sidebar.style.setProperty("-ms-overflow-style", "none");
 		if (options.todo_full_height) {
 			sidebar.style.minHeight = "100vh";
 		} else {
@@ -1069,7 +1894,29 @@ async function createTodoSections(location) {
 	});
 }
 
+function ensureRightSideWrapperScrollbarHidden() {
+    let style = document.getElementById("canvasrefined-hide-right-sidebar-scrollbar") || document.createElement("style");
+    style.id = "canvasrefined-hide-right-sidebar-scrollbar";
+    style.textContent = `
+        #right-side-wrapper {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+        #right-side-wrapper::-webkit-scrollbar {
+            width: 0 !important;
+            height: 0 !important;
+            display: none !important;
+        }
+    `;
+    document.head.append(style);
+}
+
 function clearTodoList() {
+    const seeMoreBtn = document.getElementById("better-todo-see-more");
+    if (seeMoreBtn) {
+        seeMoreBtn.remove();
+    }
+
 	document.getElementById("better-todo-main").querySelectorAll(".todo-group-list").forEach(list => {
 		list.innerHTML = "";
 	});
@@ -1081,7 +1928,17 @@ function clearTodoList() {
 function populateAssignments(iscompleted = false) {
 	const today = new Date();
 	today.setHours(0,0,0,0);
-	let assignments = iscompleted ? completed : assignmentsDue;
+    let assignments = (iscompleted ? completed : assignmentsDue).slice();
+    if (iscompleted) {
+        assignments.sort((a, b) => {
+            const aIsGraded = Boolean(a.submissions?.graded);
+            const bIsGraded = Boolean(b.submissions?.graded);
+            if (aIsGraded !== bIsGraded) {
+                return aIsGraded - bIsGraded;
+            }
+            return new Date(b.plannable_date) - new Date(a.plannable_date);
+        });
+    }
 
 	let assignmentCount = 0;
 	const maxElements = options.num_todo_items;
@@ -1137,17 +1994,26 @@ function populateAssignments(iscompleted = false) {
 			options.custom_cards_3?.[item.plannable.course_id]?.color ??
 			"#cccccc";
 
+        const isCustomTask = item.plannable_type == "planner_note" || item.planner_override?.custom === true;
+        const iconSize = isCustomTask ? 26 : 20;
+        const iconLeftOffset = isCustomTask ? 2 : 5;
+        const taskIcon = isCustomTask
+            ? `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">
+                <path d="M19.8201 14H15.6001C15.04 14 14.76 14 14.5461 14.109C14.3579 14.2049 14.2049 14.3578 14.1091 14.546C14.0001 14.7599 14.0001 15.0399 14.0001 15.6V19.82M20 12.7269V7.2C20 6.0799 20 5.51984 19.782 5.09202C19.5903 4.71569 19.2843 4.40973 18.908 4.21799C18.4802 4 17.9201 4 16.8 4H7.2C6.0799 4 5.51984 4 5.09202 4.21799C4.71569 4.40973 4.40973 4.71569 4.21799 5.09202C4 5.51984 4 6.0799 4 7.2V16.8C4 17.9201 4 18.4802 4.21799 18.908C4.40973 19.2843 4.71569 19.5903 5.09202 19.782C5.51984 20 6.0799 20 7.2 20H12.9496C13.4578 20 13.7118 20 13.9498 19.9407C14.1608 19.8882 14.3618 19.8016 14.5449 19.6844C14.7515 19.5522 14.926 19.3675 15.2751 18.9983L19.1254 14.9252C19.4486 14.5833 19.6101 14.4124 19.7255 14.2156C19.8278 14.041 19.903 13.8519 19.9486 13.6548C20 13.4325 20 13.1973 20 12.7269Z" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>`
+            : `<svg fill="var(--bctext-0)" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">
+                <g id="SVGRepo_bgCarrier" stroke-width="1"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                    <path d="M1468.214 0v551.145L840.27 1179.089c-31.623 31.623-49.693 74.54-49.693 119.715v395.289h395.288c45.176 0 88.093-18.07 119.716-49.694l162.633-162.633v438.206H0V0h1468.214Zm129.428 581.3c22.137-22.136 57.825-22.136 79.962 0l225.879 225.879c22.023 22.023 22.023 57.712 0 79.848l-677.638 677.637c-10.616 10.503-24.96 16.49-39.98 16.49H903.516v-282.35c0-15.02 5.986-29.364 16.49-39.867Zm-920.005 548.095H338.82v112.94h338.818v-112.94Zm225.88-225.879H338.818v112.94h564.697v-112.94Zm734.106-202.5-89.561 89.56 146.03 146.031 89.562-89.56-146.031-146.031Zm-508.228-362.197H338.82v338.818h790.576V338.82Z" fill-rule="evenodd"></path>
+                </g>
+            </svg>`;
+
 		assignment.style.overflowX = "hidden";
 		assignment.innerHTML = `
 		<div style="display:flex;align-items:center;gap:5px;width:100%;height:60px;background:var(--bcbackground-2);border-radius:5px;transition:all .4s ease;overflow:hidden;">
 			<div style="width:40px;display:flex;align-items:center;justify-content:center;background-color:${courseColor};height:100%;border-radius:5px 0 0 5px;">
-				<div style="width:20px;height:20px;display:flex;margin-left:5px;">
-					<svg fill="var(--bctext-0)" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg">
-						<g id="SVGRepo_bgCarrier" stroke-width="1"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-						<g id="SVGRepo_iconCarrier">
-							<path d="M1468.214 0v551.145L840.27 1179.089c-31.623 31.623-49.693 74.54-49.693 119.715v395.289h395.288c45.176 0 88.093-18.07 119.716-49.694l162.633-162.633v438.206H0V0h1468.214Zm129.428 581.3c22.137-22.136 57.825-22.136 79.962 0l225.879 225.879c22.023 22.023 22.023 57.712 0 79.848l-677.638 677.637c-10.616 10.503-24.96 16.49-39.98 16.49H903.516v-282.35c0-15.02 5.986-29.364 16.49-39.867Zm-920.005 548.095H338.82v112.94h338.818v-112.94Zm225.88-225.879H338.818v112.94h564.697v-112.94Zm734.106-202.5-89.561 89.56 146.03 146.031 89.562-89.56-146.031-146.031Zm-508.228-362.197H338.82v338.818h790.576V338.82Z" fill-rule="evenodd"></path>
-						</g>
-					</svg>
+                <div style="width:${iconSize}px;height:${iconSize}px;display:flex;margin-left:${iconLeftOffset}px;">
+                    ${taskIcon}
 				</div>
 			</div>
 			<div style="width:calc(100% - 40px);height:80%;display:flex;flex-direction:column;gap:5px;padding-left:2px;box-sizing:border-box;overflow:hidden;position:relative;">
@@ -1181,7 +2047,7 @@ function populateAssignments(iscompleted = false) {
 
 		let seeMoreButton = makeElement("button", document.getElementById("better-todo-main"), {
 			textContent: `View More (${assignmentCount - maxElements})`,
-			className: "bettercanvas-custom-btn",
+			className: "canvasrefined-custom-btn",
 			id: "better-todo-see-more",
 			style: "width:100%;margin-top:15px;cursor:pointer;"
 		})
@@ -1252,10 +2118,125 @@ function populateAnnouncements() {
 	});
 }
 
+function createConfettiBurst(targetElement, opts = {}) {
+    try {
+        if (options.todo_confetti === false) return;
+
+        const count = opts.count || 48;
+        const colors = opts.colors || ['#ff4d4f', '#ffc107', '#28a745', '#17a2b8', '#6f42c1', '#ff6b6b', '#ff8a65', '#ffd54f'];
+        const rect = targetElement.getBoundingClientRect();
+        const container = document.createElement('div');
+        container.className = 'canvasrefined-confetti-container';
+        container.style.position = 'fixed';
+        container.style.left = '0';
+        container.style.top = '0';
+        container.style.pointerEvents = 'none';
+        container.style.overflow = 'visible';
+        container.style.zIndex = '2147483647';
+        document.body.appendChild(container);
+
+        const originX = rect.left + rect.width / 2;
+        const originY = rect.top + rect.height * 0.35;
+        const particles = [];
+
+        for (let i = 0; i < count; i++) {
+            const el = document.createElement('div');
+            el.className = 'canvasrefined-confetti';
+            const w = 4 + Math.floor(Math.random() * 7); // smaller pieces
+            const h = Math.max(3, Math.floor(w * (0.4 + Math.random() * 0.8)));
+            el.style.position = 'absolute';
+            el.style.width = w + 'px';
+            el.style.height = h + 'px';
+            el.style.background = colors[Math.floor(Math.random() * colors.length)];
+            el.style.left = (originX - w / 2) + 'px';
+            el.style.top = (originY - h / 2) + 'px';
+            el.style.opacity = '1';
+            el.style.borderRadius = Math.random() > 0.75 ? '50%' : '2px';
+            el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.18)';
+            el.style.transformOrigin = 'center center';
+            el.style.willChange = 'transform, opacity';
+            container.appendChild(el);
+
+            const duration = 850 + Math.floor(Math.random() * 500);
+            const delay = Math.floor(Math.random() * 90);
+            const spread = opts.spread || 110;
+            const horizontalBias = (Math.random() - 0.5) * 2;
+
+            // Arc stays lower and wider than the old cone-shaped burst.
+            const endX = originX + horizontalBias * (spread * (0.7 + Math.random() * 0.6));
+            const endY = originY - (16 + Math.random() * 34);
+            const ctrlX = originX + horizontalBias * (spread * 0.25) + (Math.random() - 0.5) * 14;
+            const ctrlY = originY - (30 + Math.random() * 55);
+
+            particles.push({
+                el,
+                delay,
+                duration,
+                originX,
+                originY,
+                ctrlX,
+                ctrlY,
+                endX,
+                endY,
+                rotate: (Math.random() * 260) - 130,
+                scale: 0.8 + Math.random() * 0.5,
+            });
+        }
+
+        const startTime = performance.now();
+        let rafId = null;
+
+        const animate = now => {
+            let active = false;
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                const elapsed = now - startTime - particle.delay;
+                if (elapsed < 0) {
+                    active = true;
+                    continue;
+                }
+
+                const progress = Math.min(1, elapsed / particle.duration);
+                const eased = 1 - Math.pow(1 - progress, 3);
+
+                const x = (1 - eased) * (1 - eased) * particle.originX + 2 * (1 - eased) * eased * particle.ctrlX + eased * eased * particle.endX;
+                const y = (1 - eased) * (1 - eased) * particle.originY + 2 * (1 - eased) * eased * particle.ctrlY + eased * eased * particle.endY;
+
+                particle.el.style.transform = `translate(${Math.round(x - particle.originX)}px, ${Math.round(y - particle.originY)}px) rotate(${particle.rotate * eased}deg) scale(${particle.scale * (1 - eased * 0.15)})`;
+                particle.el.style.opacity = String(1 - progress);
+
+                if (progress < 1) {
+                    active = true;
+                } else {
+                    particle.el.remove();
+                    particles.splice(i, 1);
+                }
+            }
+
+            if (active) {
+                rafId = requestAnimationFrame(animate);
+            } else {
+                try { container.remove(); } catch (e) { /* ignore */ }
+                if (rafId) cancelAnimationFrame(rafId);
+            }
+        };
+
+        rafId = requestAnimationFrame(animate);
+
+        // cleanup container after animations
+        setTimeout(() => {
+            try { container.remove(); } catch (e) { /* ignore */ }
+        }, 2400);
+    } catch (e) {
+        console.error('confetti error', e);
+    }
+}
+
 function markAs(item, element) {
 	const csrfToken = CSRFtoken();
 	const completeState = item.planner_override ? !item.planner_override.marked_complete : true;
-	fetch(domain + "/api/v1/planner/overrides/" + (item.planner_override ? "/" + item.planner_override.id : ""), {
+    fetch(domain + "/api/v1/planner/overrides" + (item.planner_override ? "/" + item.planner_override.id : ""), {
 		method: item.planner_override ? "PUT" : "POST",
 		headers: {
 			"content-type":"application/json",
@@ -1270,16 +2251,48 @@ function markAs(item, element) {
 		})
 	})
 	.then(resp => {
-		if (resp.status == 200 || resp.status == 201) {
+        if (resp.status == 200 || resp.status == 201 || resp.status == 204) {
 			console.log("marked as complete");
 			item.planner_override = item.planner_override || {};
 			item.planner_override.marked_complete = completeState;
 			element.style.transform = "translate(100%)";
 			element.style.opacity = "0";
-			setTimeout(() => {
-				clearTodoList();
-				createTodoSections(document.querySelector("#bettercanvas-todo-list"));
-			}, 400);
+
+            // fire confetti only when marking complete (not when unmarking)
+            if (completeState) {
+                try { createConfettiBurst(element); } catch (e) { console.error('confetti trigger error', e); }
+            }
+
+        // update progress rings immediately so they animate while the item slides/fades
+        const progressPlaceholder = document.getElementById("better-todo-progress-placeholder");
+        if (progressPlaceholder && typeof assignments?.then === 'function' && (options.todo_progress_rings === undefined || options.todo_progress_rings === true)) {
+            assignments.then(data => {
+                const courseId = getCurrentCourseId();
+                const scopedData = courseId
+                    ? data.map(d => Object.assign({}, d)) // shallow copy
+                        .filter(d => {
+                            const itemCourseId = parseInt(d.course_id || d.context_id || d?.plannable?.course_id);
+                            return itemCourseId === courseId;
+                        })
+                    : data.map(d => Object.assign({}, d));
+
+                // reflect the updated state for this item in the snapshot
+                for (let i = 0; i < scopedData.length; i++) {
+                    if (scopedData[i].plannable_id === item.plannable_id && scopedData[i].plannable_type === item.plannable_type) {
+                        scopedData[i].planner_override = scopedData[i].planner_override || {};
+                        scopedData[i].planner_override.marked_complete = item.planner_override.marked_complete;
+                        break;
+                    }
+                }
+
+                renderProgressRings(progressPlaceholder, scopedData);
+            });
+        }
+
+        setTimeout(() => {
+            clearTodoList();
+            createTodoSections(document.querySelector("#canvasrefined-todo-list"));
+        }, 400);
 		}
 	})
 	.catch(err => console.error("error marking as complete", err));
@@ -1287,8 +2300,8 @@ function markAs(item, element) {
 }
 
 function createTodoViewMore(location, type) {
-    let viewMoreButton = makeElement("button", location, { "className": "bettercanvas-custom-btn bettercanvas-viewmore-btn", "textContent": "View More" });
-    //viewMoreButton.classList.add("bettercanvas-viewmore-btn");
+    let viewMoreButton = makeElement("button", location, { "className": "canvasrefined-custom-btn canvasrefined-viewmore-btn", "textContent": "View More" });
+    //viewMoreButton.classList.add("canvasrefined-viewmore-btn");
     const showMoreCount = 3;
     viewMoreButton.addEventListener("click", function (e) {
         if (type === "announcement") {
@@ -1302,17 +2315,17 @@ function createTodoViewMore(location, type) {
 
 // better todo init
 function setupBetterTodo() {
-    if (options.better_todo !== true) return;
-    if (document.querySelector('#bettercanvas-todo-list')) return;
+    if (options.better_todo !== true || isGradesPage()) return;
+    if (document.querySelector('#canvasrefined-todo-list')) return;
     let list = document.querySelector("#right-side");
     if (!list) return;
-    //if (!list || list.childElementCount === 0 || list.children[0].id === "bettercanvas-todo-list") return;
+    //if (!list || list.childElementCount === 0 || list.children[0].id === "canvasrefined-todo-list") return;
     try {
         /* save the feedback to append it later */
         const feedback = list.querySelector(".events_list.recent_feedback");
 
         list.textContent = "";
-        list = makeElement("div", list, { "className": "bettercanvas-todosidebar","id": "bettercanvas-todo-list"});
+        list = makeElement("div", list, { "className": "canvasrefined-todosidebar","id": "canvasrefined-todo-list"});
         createTodoSections(list);
 
         if (feedback) list.append(feedback);
@@ -1322,141 +2335,97 @@ function setupBetterTodo() {
     }
 }
 
-function setupBetterSidebar(mode = "dash") {
+function getSidebarScale() {
+    const rawScale = parseInt(options.sidebar_scale || 100);
+    if (isNaN(rawScale)) return 1;
+    return Math.max(0.7, Math.min(1.5, rawScale / 100));
+}
+
+function applySidebarScaleStyles(sidebarList) {
+    const scale = getSidebarScale();
+    sidebarList.style.setProperty("--bc-sidebar-icon-size", `${Math.round(20 * scale)}px`);
+    sidebarList.style.setProperty("--bc-sidebar-btn-height", `${Math.round(30 * scale)}px`);
+    sidebarList.style.setProperty("--bc-sidebar-btn-gap", `${Math.round(8 * scale)}px`);
+    sidebarList.style.setProperty("--bc-sidebar-label-size", `${Math.round(14 * scale)}px`);
+}
+
+async function setupBetterSidebar(mode = getSidebarLayoutMode()) {
     if (!options.better_sidebar) return;
     if (document.querySelector('#better-sidebar-container')) return;
     let wrapper = document.querySelector("#wrapper");
-    if (!wrapper) return;
+    if (!wrapper || betterSidebarLoading) return;
+    betterSidebarLoading = true;
     try {
-		const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
-		let courseLinks;
-		let expanded = false;
-		if (mode == "dash") {
-			document.getElementById("header").style.display = "none";
-			document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
-			mainWrapper.style.display = "flex";
-		}
-		else if (mode == "course") {
-			document.getElementById("header").style.display = "none";
-			document.querySelector(".ic-Layout-wrapper")?.style.setProperty("margin-left", "0");
-			// document.getElementById("not_right_side").style.display = "flex";
-			mainWrapper.style.display = "flex";
-			document.querySelector(".ic-Layout-contentMain").style.flex = "1";
-			document.querySelector(".ic-Layout-contentMain").style.minWidth = "0";
-			courseLinks = getCourseLinks();
-			document.querySelector(".ic-app-nav-toggle-and-crumbs").style.display = "none";
-			expanded = true;
-		}
+        const layoutMode = mode === "course" || mode === "dash" ? mode : getSidebarLayoutMode();
+        const outerWrapper = document.getElementById("main");
+        outerWrapper?.style.setProperty("display", "flex", "important");
+        // document.getElementById("not_right_side").style.setProperty("display", "none", "important");
+        const leftSide = document.getElementById("left-side");
+        leftSide?.style.setProperty("opacity", "1");
+        leftSide?.style.setProperty("position", "static");
+        const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
+        if (!mainWrapper) return;
+        const expandedPromise = getSidebarExpandedState(layoutMode);
+        applyBetterSidebarLayoutFix();
+        mainWrapper.style.display = "flex";
+        mainWrapper.style.alignItems = "stretch";
+        mainWrapper.style.minWidth = "0";
+        const contentMain = document.querySelector(".ic-Layout-contentMain");
+        contentMain?.style.setProperty("flex", "1 1 auto");
+        contentMain?.style.setProperty("min-width", "0");
+        if (layoutMode === "course" && leftSide) {
+            const notRightSide = document.getElementById("not_right_side");
+            const rightSideWrapper = document.getElementById("right-side-wrapper");
+            leftSide.style.flex = "0 0 250px";
+            leftSide.style.width = "250px";
+            leftSide.style.maxWidth = "250px";
+            if (notRightSide) {
+                notRightSide.style.display = "flex";
+                notRightSide.style.flex = "1 1 auto";
+                notRightSide.style.minWidth = "0";
+            }
+            if (rightSideWrapper) {
+                rightSideWrapper.style.flex = "0 0 280px";
+                rightSideWrapper.style.width = "280px";
+                rightSideWrapper.style.maxWidth = "280px";
+            }
+            contentMain?.style.setProperty("margin", "26px 38px 38px", "important");
+            contentMain?.style.setProperty("padding", "10px", "important");
+            contentMain?.style.setProperty("border-radius", "10px", "important");
+            contentMain?.style.setProperty("background", "color-mix(in srgb, var(--bcbackground-0) 45%, transparent)", "important");
+            contentMain?.style.setProperty("backdrop-filter", "blur(5px)", "important");
+            contentMain?.style.setProperty("-webkit-backdrop-filter", "blur(5px)", "important");
+        }
+        const sidebarParent = layoutMode === "course" && leftSide ? leftSide : mainWrapper;
+        if (layoutMode === "course" && leftSide) {
+            leftSide.style.display = "flex";
+            leftSide.style.flexDirection = "row";
+            leftSide.style.alignItems = "stretch";
+            leftSide.style.minWidth = "0";
+            leftSide.style.gap = "0";
+        }
+        document.querySelector(".ic-app-nav-toggle-and-crumbs")?.style.setProperty("display", "none");
+        if (layoutMode !== "course") {
+            document.getElementById("left-side")?.style.removeProperty("display");
+        }
+        if (layoutMode == "dash") {
+            document.getElementById("header")?.style.setProperty("display", "none");
+        }
+        else if (layoutMode == "course") {
+            document.getElementById("header")?.style.setProperty("display", "none");
+        }
 
-        let sidebarList = makeElement("div", mainWrapper, { id: "better-sidebar-container",
+        let sidebarList = makeElement("div", sidebarParent, { id: "better-sidebar-container",
             style: `display:flex;flex-direction:column;width:50px;justify-content:center;align-items:center;box-sizing:border-box;position:relative;background-color:var(--bcbackground-0);height:100vh;position:sticky;top:0;left:0;`
         }, true);
-		let sidebarContent = makeElement("div", sidebarList, {
-			style: "display:flex;flex-direction:column;gap:20px;width:100%;flex:1;justify-content:flex-start;align-items:center;margin:40px;"
-		});
-		// sidebar contents
-		createSidebarButton("Dashboard", domain + "/", sidebarContent,
-			`<svg fill="var(--bctext-0)" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
-				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-				<g id="SVGRepo_iconCarrier">
-					<rect x="2" y="2" width="9" height="11" rx="2"></rect>
-					<rect x="13" y="2" width="9" height="7" rx="2"></rect>
-					<rect x="2" y="15" width="9" height="7" rx="2"></rect>
-					<rect x="13" y="11" width="9" height="11" rx="2"></rect>
-				</g>
-			</svg>`,
-		);
-		createSidebarButton(
-			"Courses",
-			domain + "/courses",
-			sidebarContent,
-			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
-				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-				<g id="SVGRepo_iconCarrier">
-					<path d="M20 12V4C20 2.89543 19.1046 2 18 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V18.5" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-					<path d="M13 2V14L16.8182 11L20 14V5" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-				</g>
-			</svg>`,
-		);
-		createSidebarButton(
-			"Groups",
-			domain + "/groups",
-			sidebarContent,
-			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
-				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-				<g id="SVGRepo_iconCarrier">
-					<path fill-rule="evenodd" clip-rule="evenodd" d="M16 6C14.3432 6 13 7.34315 13 9C13 10.6569 14.3432 12 16 12C17.6569 12 19 10.6569 19 9C19 7.34315 17.6569 6 16 6ZM11 9C11 6.23858 13.2386 4 16 4C18.7614 4 21 6.23858 21 9C21 10.3193 20.489 11.5193 19.6542 12.4128C21.4951 13.0124 22.9176 14.1993 23.8264 15.5329C24.1374 15.9893 24.0195 16.6114 23.5631 16.9224C23.1068 17.2334 22.4846 17.1155 22.1736 16.6591C21.1979 15.2273 19.4178 14 17 14C13.166 14 11 17.0742 11 19C11 19.5523 10.5523 20 10 20C9.44773 20 9.00001 19.5523 9.00001 19C9.00001 18.308 9.15848 17.57 9.46082 16.8425C9.38379 16.7931 9.3123 16.7323 9.24889 16.6602C8.42804 15.7262 7.15417 15 5.50001 15C3.84585 15 2.57199 15.7262 1.75114 16.6602C1.38655 17.075 0.754692 17.1157 0.339855 16.7511C-0.0749807 16.3865 -0.115709 15.7547 0.248886 15.3398C0.809035 14.7025 1.51784 14.1364 2.35725 13.7207C1.51989 12.9035 1.00001 11.7625 1.00001 10.5C1.00001 8.01472 3.01473 6 5.50001 6C7.98529 6 10 8.01472 10 10.5C10 11.7625 9.48013 12.9035 8.64278 13.7207C9.36518 14.0785 9.99085 14.5476 10.5083 15.0777C11.152 14.2659 11.9886 13.5382 12.9922 12.9945C11.7822 12.0819 11 10.6323 11 9ZM3.00001 10.5C3.00001 9.11929 4.1193 8 5.50001 8C6.88072 8 8.00001 9.11929 8.00001 10.5C8.00001 11.8807 6.88072 13 5.50001 13C4.1193 13 3.00001 11.8807 3.00001 10.5Z" fill="var(--bctext-0)"></path>
-				</g>
-			</svg>`,
-		);
-		createSidebarButton(
-			"Calendar",
-			domain + "/calendar",
-			sidebarContent,
-			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
-				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-				<g id="SVGRepo_iconCarrier">
-					<path d="M3 9H21M7 3V5M17 3V5M6 12H8M11 12H13M16 12H18M6 15H8M11 15H13M16 15H18M6 18H8M11 18H13M16 18H18M6.2 21H17.8C18.9201 21 19.4802 21 19.908 20.782C20.2843 20.5903 20.5903 20.2843 20.782 19.908C21 19.4802 21 18.9201 21 17.8V8.2C21 7.07989 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V17.8C3 18.9201 3 19.4802 3.21799 19.908C3.40973 20.2843 3.71569 20.5903 4.09202 20.782C4.51984 21 5.07989 21 6.2 21Z" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round"></path>
-				</g>
-			</svg>`,
-		);
-		createSidebarButton(
-			"Inbox",
-			domain + "/conversations",
-			sidebarContent,
-			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
-				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-				<g id="SVGRepo_iconCarrier">
-					<path d="M4 18L9 12M20 18L15 12M3 8L10.225 12.8166C10.8665 13.2443 11.1872 13.4582 11.5339 13.5412C11.8403 13.6147 12.1597 13.6147 12.4661 13.5412C12.8128 13.4582 13.1335 13.2443 13.775 12.8166L21 8M6.2 19H17.8C18.9201 19 19.4802 19 19.908 18.782C20.2843 18.5903 20.5903 18.2843 20.782 17.908C21 17.4802 21 16.9201 21 15.8V8.2C21 7.0799 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V15.8C3 16.9201 3 17.4802 3.21799 17.908C3.40973 18.2843 3.71569 18.5903 4.09202 18.782C4.51984 19 5.07989 19 6.2 19Z" stroke="var(--bctext-0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-				</g>
-			</svg>`,
-		);
-		createSidebarButton(
-			"Studio",
-			domain +
-				"accounts/1/external_tools/69?launch_type=global_navigation",
-			sidebarContent,
-			`<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
-				<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-				<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-				<g id="SVGRepo_iconCarrier">
-					<path fill-rule="evenodd" clip-rule="evenodd" d="M6 1C4.34315 1 3 2.34315 3 4V17V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V17V4C21 2.34315 19.6569 1 18 1H6ZM5 20V17C5 16.4477 5.44772 16 6 16H18C18.5523 16 19 16.4477 19 17V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20ZM18 14C18.3506 14 18.6872 14.0602 19 14.1707V4C19 3.44772 18.5523 3 18 3H6C5.44772 3 5 3.44772 5 4V14.1707C5.31278 14.0602 5.64936 14 6 14H18ZM14.5 19.25C15.1904 19.25 15.75 18.6904 15.75 18C15.75 17.3096 15.1904 16.75 14.5 16.75C13.8096 16.75 13.25 17.3096 13.25 18C13.25 18.6904 13.8096 19.25 14.5 19.25Z" fill="var(--bctext-0)"></path>
-				</g>
-			</svg>`,
-		);
-
-		if (mode == "course") {
-			makeElement("h1", sidebarContent, {
-				textContent: "Course Links:",
-				style: "font-size: 20px;color:var(--bctext-0);margin-top:5px;margin-bottom:5px;"
-			})
-			courseLinks.forEach((link) => {
-				createSidebarButton(
-					link.name,
-					domain + link.url,
-					sidebarContent,
-					`<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg0" style="width:20px;height:20px;">
-						<g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-						<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-						<g id="SVGRepo_iconCarrier">
-							<path d="M7.05025 1.53553C8.03344 0.552348 9.36692 0 10.7574 0C13.6528 0 16 2.34721 16 5.24264C16 6.63308 15.4477 7.96656 14.4645 8.94975L12.4142 11L11 9.58579L13.0503 7.53553C13.6584 6.92742 14 6.10264 14 5.24264C14 3.45178 12.5482 2 10.7574 2C9.89736 2 9.07258 2.34163 8.46447 2.94975L6.41421 5L5 3.58579L7.05025 1.53553Z" fill="var(--bctext-0)"></path>
-							<path d="M7.53553 13.0503L9.58579 11L11 12.4142L8.94975 14.4645C7.96656 15.4477 6.63308 16 5.24264 16C2.34721 16 0 13.6528 0 10.7574C0 9.36693 0.552347 8.03344 1.53553 7.05025L3.58579 5L5 6.41421L2.94975 8.46447C2.34163 9.07258 2 9.89736 2 10.7574C2 12.5482 3.45178 14 5.24264 14C6.10264 14 6.92742 13.6584 7.53553 13.0503Z" fill="var(--bctext-0)"></path>
-							<path d="M5.70711 11.7071L11.7071 5.70711L10.2929 4.29289L4.29289 10.2929L5.70711 11.707１Z" fill="var(--bctext-0)"></path>
-						</g>
-					</svg>`
-				);
-			});
-		}
-
-
+        let sidebarContent = makeElement("div", sidebarList, {
+            style: "display:flex;flex-direction:column;gap:20px;width:100%;flex:1;justify-content:flex-start;align-items:center;margin:40px;"
+        });
+        applySidebarScaleStyles(sidebarList);
         let expander = makeElement("div", sidebarList, {
-			style: "display:flex;flex-direction:column;gap:0px;margin-top:auto;width:100%;justify-content:center;align-items:center;cursor:pointer;",
-		});
+            className: "better-sidebar-expander",
+            style: "display:flex;flex-direction:column;gap:0px;margin-top:auto;width:100%;justify-content:center;align-items:center;cursor:pointer;",
+        });
         expander.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:30px;height:30px;transition:all .3s ease;">
                 <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -1466,35 +2435,210 @@ function setupBetterSidebar(mode = "dash") {
                 </g>
             </svg>
         `
-		updateSidebar(expanded, sidebarList, expander);
-		// const labels = document.querySelectorAll(".better-sidebar-label");
-		// labels.forEach(label => label.style.display = "none");
-		expander.addEventListener("click", () => {
-			expanded = !expanded;
+        sidebarList.dataset.expanded = "false";
+        updateSidebar(false, sidebarList, expander);
+        requestAnimationFrame(() => populateSidebarFromNav(sidebarContent));
+
+        let expanded = await expandedPromise;
+        sidebarList.dataset.expanded = expanded ? "true" : "false";
+        updateSidebar(expanded, sidebarList, expander);
+        setSidebarExpandedState(layoutMode, expanded);
+        // const labels = document.querySelectorAll(".better-sidebar-label");
+        // labels.forEach(label => label.style.display = "none");
+        expander.addEventListener("click", () => {
+            expanded = !expanded;
+            sidebarList.dataset.expanded = expanded ? "true" : "false";
+            setSidebarExpandedState(layoutMode, expanded);
             updateSidebar(expanded, sidebarList, expander);
         })
     } catch (e) {
         logError(e);
+    } finally {
+        betterSidebarLoading = false;
     }
 }
 function createSidebarButton(text, url, parent, icon) {
 	let button = makeElement("a", parent, {
-		style: "width:40%;height:30px;cursor:pointer;text-align:center;text-decoration:none;display:inline-flex;justify-content:center;align-items:center;gap:8px;color:var(--bctext-0) !important;font-weight:bold;",
-		className: "bettercanvas-custom-btn better-sidebar-btn",
+        style: "width:40%;height:var(--bc-sidebar-btn-height,30px);cursor:pointer;text-align:center;text-decoration:none;display:inline-flex;justify-content:center;align-items:center;gap:var(--bc-sidebar-btn-gap,8px);color:var(--bctext-0) !important;font-weight:bold;position:relative;",
+		className: "canvasrefined-custom-btn better-sidebar-btn",
 		href: url,
 	});
-	button.innerHTML = `${icon ? `${icon}<span class="better-sidebar-label" style="font-size:clamp(10px, 2vw, 18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${text}</span>` : `<span class="better-sidebar-label">${text}</span>`}`;
+    button.innerHTML = `${icon ? `${icon}<span class="better-sidebar-label" style="font-size:var(--bc-sidebar-label-size,14px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${text}</span>` : `<span class="better-sidebar-label" style="font-size:var(--bc-sidebar-label-size,14px);">${text}</span>`}`;
+    return button;
+}
+
+function getNavBadgeCount(item) {
+    const badge = item.querySelector(".menu-item__badge");
+    if (!badge) return 0;
+    const badgeText = badge.querySelector('[aria-hidden="true"]')?.textContent?.trim() || badge.textContent?.trim() || "";
+    const count = parseInt(badgeText, 10);
+    return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+function addSidebarButtonBadge(button, count) {
+    if (!button || !count) return;
+    button.querySelector(".better-sidebar-badge")?.remove();
+    makeElement("div", button, {
+        className: "better-sidebar-badge",
+        style: "position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background-color:#ff0000;color:white;font-size:11px;line-height:16px;display:flex;justify-content:center;align-items:center;box-sizing:border-box;pointer-events:none;",
+        textContent: String(count),
+    });
+}
+function populateSidebarFromNav(sidebarContent) {
+	const excludeIds = ["global_nav_help_link", "global_nav_history_link"];
+	const customIcons = {
+		"global_nav_profile_link": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="white"></path></g></svg>`,
+		"global_nav_dashboard_link": `<svg fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><rect x="2" y="2" width="9" height="11" rx="2"></rect><rect x="13" y="2" width="9" height="7" rx="2"></rect><rect x="2" y="15" width="9" height="7" rx="2"></rect><rect x="13" y="11" width="9" height="11" rx="2"></rect></g></svg>`,
+		"global_nav_conversations_link": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M4 18L9 12M20 18L15 12M3 8L10.225 12.8166C10.8665 13.2443 11.1872 13.4582 11.5339 13.5412C11.8403 13.6147 12.1597 13.6147 12.4661 13.5412C12.8128 13.4582 13.1335 13.2443 13.775 12.8166L21 8M6.2 19H17.8C18.9201 19 19.4802 19 19.908 18.782C20.2843 18.5903 20.5903 18.2843 20.782 17.908C21 17.4802 21 16.9201 21 15.8V8.2C21 7.0799 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V15.8C3 16.9201 3 17.4802 3.21799 17.908C3.40973 18.2843 3.71569 18.5903 4.09202 18.782C4.51984 19 5.07989 19 6.2 19Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></g></svg>`,
+		"global_nav_calendar_link": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M3 9H21M7 3V5M17 3V5M6 12H8M11 12H13M16 12H18M6 15H8M11 15H13M16 15H18M6 18H8M11 18H13M16 18H18M6.2 21H17.8C18.9201 21 19.4802 21 19.908 20.782C20.2843 20.5903 20.5903 20.2843 20.782 19.908C21 19.4802 21 18.9201 21 17.8V8.2C21 7.07989 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V17.8C3 18.9201 3 19.4802 3.21799 19.908C3.40973 20.2843 3.71569 20.5903 4.09202 20.782C4.51984 21 5.07989 21 6.2 21Z" stroke="white" stroke-width="2" stroke-linecap="round"></path></g></svg>`,
+		"global_nav_courses_link": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M20 12V4C20 2.89543 19.1046 2 18 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V18.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M13 2V14L16.8182 11L20 14V5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></g></svg>`,
+		"global_nav_groups_link": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path fill-rule="evenodd" clip-rule="evenodd" d="M16 6C14.3432 6 13 7.34315 13 9C13 10.6569 14.3432 12 16 12C17.6569 12 19 10.6569 19 9C19 7.34315 17.6569 6 16 6ZM11 9C11 6.23858 13.2386 4 16 4C18.7614 4 21 6.23858 21 9C21 10.3193 20.489 11.5193 19.6542 12.4128C21.4951 13.0124 22.9176 14.1993 23.8264 15.5329C24.1374 15.9893 24.0195 16.6114 23.5631 16.9224C23.1068 17.2334 22.4846 17.1155 22.1736 16.6591C21.1979 15.2273 19.4178 14 17 14C13.166 14 11 17.0742 11 19C11 19.5523 10.5523 20 10 20C9.44773 20 9.00001 19.5523 9.00001 19C9.00001 18.308 9.15848 17.57 9.46082 16.8425C9.38379 16.7931 9.3123 16.7323 9.24889 16.6602C8.42804 15.7262 7.15417 15 5.50001 15C3.84585 15 2.57199 15.7262 1.75114 16.6602C1.38655 17.075 0.754692 17.1157 0.339855 16.7511C-0.0749807 16.3865 -0.115709 15.7547 0.248886 15.3398C0.809035 14.7025 1.51784 14.1364 2.35725 13.7207C1.51989 12.9035 1.00001 11.7625 1.00001 10.5C1.00001 8.01472 3.01473 6 5.50001 6C7.98529 6 10 8.01472 10 10.5C10 11.7625 9.48013 12.9035 8.64278 13.7207C9.36518 14.0785 9.99085 14.5476 10.5083 15.0777C11.152 14.2659 11.9886 13.5382 12.9922 12.9945C11.7822 12.0819 11 10.6323 11 9ZM3.00001 10.5C3.00001 9.11929 4.1193 8 5.50001 8C6.88072 8 8.00001 9.11929 8.00001 10.5C8.00001 11.8807 6.88072 13 5.50001 13C4.1193 13 3.00001 11.8807 3.00001 10.5Z" fill="white"></path></g></svg>`,
+		"globalNavExternalTool-69": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path fill-rule="evenodd" clip-rule="evenodd" d="M6 1C4.34315 1 3 2.34315 3 4V17V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V17V4C21 2.34315 19.6569 1 18 1H6ZM5 20V17C5 16.4477 5.44772 16 6 16H18C18.5523 16 19 16.4477 19 17V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20ZM18 14C18.3506 14 18.6872 14.0602 19 14.1707V4C19 3.44772 18.5523 3 18 3H6C5.44772 3 5 3.44772 5 4V14.1707C5.31278 14.0602 5.64936 14 6 14H18ZM14.5 19.25C15.1904 19.25 15.75 18.6904 15.75 18C15.75 17.3096 15.1904 16.75 14.5 16.75C13.8096 16.75 13.25 17.3096 13.25 18C13.25 18.6904 13.8096 19.25 14.5 19.25Z" fill="white"></path></g></svg>`,
+	};
+	
+	const navMenu = document.getElementById("menu");
+    let hasDashboardButton = false;
+
+    if (navMenu) {
+        const menuItems = navMenu.querySelectorAll("a[id^='global_nav'], .globalNavExternalTool a");
+        menuItems.forEach(item => {
+            const itemId = item.id;
+            if (excludeIds.includes(itemId)) return;
+
+            const href = item.getAttribute("href");
+            let textEl = item.querySelector(".menu-item__text");
+            let text = textEl?.textContent?.trim();
+		
+            // If text not found, try other sources
+            if (!text) {
+                text = item.getAttribute("aria-label")?.trim() || 
+                        item.getAttribute("title")?.trim() || 
+                        item.textContent?.trim();
+            }
+		
+            if (!text || !href) return;
+
+            let icon = customIcons[itemId] || "";
+            if (!icon) {
+                const svg = item.querySelector("svg");
+                if (svg) {
+                    icon = svg.outerHTML;
+                    // Detect and scale down large viewBox SVGs
+                    const viewBoxMatch = icon.match(/viewBox="([^"]+)"/);
+                    if (viewBoxMatch) {
+                        const [, viewBox] = viewBoxMatch;
+                        const parts = viewBox.split(/\s+/);
+                        const width = parseFloat(parts[2]);
+                        const height = parseFloat(parts[3]);
+                        // If viewBox is large, add fixed size to scale it down
+                        if (width > 32 || height > 32) {
+                            // Check if svg already has a style attribute
+                            if (icon.includes('style="')) {
+                                // Append to existing style
+                                icon = icon.replace(/style="([^"]*)"/, `style="$1 width:20px;height:20px;flex-shrink:0;fill:white;stroke:white;"`);
+                            } else {
+                                // Add new style attribute
+                                icon = icon.replace("<svg", '<svg style="width:20px;height:20px;flex-shrink:0;fill:white;stroke:white;"');
+                            }
+                        } else {
+                            // Smaller SVG - just add colors
+                            if (icon.includes('style="')) {
+                                icon = icon.replace(/style="([^"]*)"/, `style="$1 fill:white;stroke:white;flex-shrink:0;"`);
+                            } else {
+                                icon = icon.replace("<svg", '<svg style="fill:white;stroke:white;flex-shrink:0;"');
+                            }
+                        }
+                    } else {
+                        // No viewBox - just add colors
+                        if (icon.includes('style="')) {
+                            icon = icon.replace(/style="([^"]*)"/, `style="$1 fill:white;stroke:white;"`);
+                        } else {
+                            icon = icon.replace("<svg", '<svg style="fill:white;stroke:white;"');
+                        }
+                    }
+                }
+            }
+
+            if (itemId === "global_nav_dashboard_link") hasDashboardButton = true;
+            const button = createSidebarButton(text, href, sidebarContent, icon);
+            addSidebarButtonBadge(button, getNavBadgeCount(item));
+        });
+    }
+
+    if (!hasDashboardButton) {
+        createSidebarButton("Dashboard", `${domain}/`, sidebarContent, customIcons["global_nav_dashboard_link"]);
+    }
 }
 function updateSidebar(expanded, sidebarList, expander) {
-	sidebarList.style.width = expanded ? "150px" : "50px";
-	expander.style.transform = expanded ? "rotate(180deg)" : "rotate(0deg)";
-	const labels = document.querySelectorAll(".better-sidebar-label");
-	labels.forEach(label => label.style.display = expanded ? "block" : "none");
-	const buttons = document.querySelectorAll(".better-sidebar-btn");
-	buttons.forEach(label => label.style.width = expanded ? "80%" : "40%");
+    const scale = getSidebarScale();
+    const expandedWidth = Math.round(150 * scale);
+    const collapsedWidth = Math.round(50 * scale);
+    sidebarList.style.width = expanded ? `${expandedWidth}px` : `${collapsedWidth}px`;
+    applySidebarScaleStyles(sidebarList);
+
+    expander.style.transform = expanded ? "rotate(180deg)" : "rotate(0deg)";
+    expander.querySelector("svg").style.width = `${Math.round(30 * scale)}px`;
+    expander.querySelector("svg").style.height = `${Math.round(30 * scale)}px`;
+    const labels = document.querySelectorAll(".better-sidebar-label");
+    labels.forEach(label => label.style.display = expanded ? "block" : "none");
+    const buttons = document.querySelectorAll(".better-sidebar-btn");
+    buttons.forEach(label => label.style.width = expanded ? "80%" : "40%");
+    sidebarList.querySelectorAll(".better-sidebar-btn svg").forEach(svg => {
+        svg.style.width = "var(--bc-sidebar-icon-size,20px)";
+        svg.style.height = "var(--bc-sidebar-icon-size,20px)";
+    });
+
+    // Expand (or restore) the entire left-side column when the sidebar toggles
+    const leftSide = document.getElementById("left-side");
+    if (leftSide) {
+        // on first run store the original width (prefer computed) and inline flex/maxWidth
+        if (!leftSide.dataset.bcOrigWidth) {
+            const computed = getComputedStyle(leftSide).width || "";
+            leftSide.dataset.bcOrigWidth = leftSide.style.width || "";
+            leftSide.dataset.bcOrigFlex = leftSide.style.flex || "";
+            leftSide.dataset.bcOrigMaxWidth = leftSide.style.maxWidth || "";
+            leftSide.dataset.bcOrigWidthPx = parseFloat(computed) || 0;
+        }
+
+        const origPx = parseFloat(leftSide.dataset.bcOrigWidthPx || 0);
+        const delta = expandedWidth - collapsedWidth;
+
+        if (expanded) {
+            if (origPx > 0) {
+                const newWidth = Math.round(origPx + delta);
+                leftSide.style.flex = `0 0 ${newWidth}px`;
+                leftSide.style.width = `${newWidth}px`;
+                leftSide.style.maxWidth = `${newWidth}px`;
+            } else {
+                leftSide.style.flex = `0 0 ${expandedWidth}px`;
+                leftSide.style.width = `${expandedWidth}px`;
+                leftSide.style.maxWidth = `${expandedWidth}px`;
+            }
+        } else {
+            // restore original inline values if present, otherwise remove the properties
+            if (leftSide.dataset.bcOrigWidth !== "") leftSide.style.width = leftSide.dataset.bcOrigWidth; else leftSide.style.removeProperty('width');
+            if (leftSide.dataset.bcOrigFlex !== "") leftSide.style.flex = leftSide.dataset.bcOrigFlex; else leftSide.style.removeProperty('flex');
+            if (leftSide.dataset.bcOrigMaxWidth !== "") leftSide.style.maxWidth = leftSide.dataset.bcOrigMaxWidth; else leftSide.style.removeProperty('max-width');
+        }
+    }
+
+    const courseLinksTitle = document.getElementById("better-course-links-title");
+    if (courseLinksTitle) {
+        courseLinksTitle.style.display = expanded ? "block" : "none";
+        // Also hide separator when collapsed
+        const separator = courseLinksTitle.nextElementSibling;
+        if (separator) separator.style.display = expanded ? "block" : "none";
+        
+        const container = document.getElementById("better-course-links");
+        if (container) {
+            container.style.opacity = expanded ? "1" : "0.6";
+            container.style.gap = expanded ? "12px" : "8px";
+        }
+    }
 }
 function getCourseLinks() {
 	const linkList = document.getElementById("section-tabs");
+	if (!linkList) return [];
 	const links = linkList.querySelectorAll("a");
 	const courseLinks = [];
 	links.forEach(link => {
@@ -1511,13 +2655,14 @@ let delay;
 let moreAssignmentCount = 0;
 let moreAnnouncementCount = 0;
 let filter = "todo";
-function loadBetterTodo() {
-    if (options.better_todo !== true) return;
+async function loadBetterTodo() {
+    if (options.better_todo !== true || isGradesPage()) return;
     try {
-        const discussion_svg = '<svg class="bettercanvas-todo-svg" name="IconDiscussion" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false"  ><g role="presentation"><path d="M677.647059,16 L677.647059,354.936471 L790.588235,354.936471 L790.588235,129.054118 L1807.05882,129.054118 L1807.05882,919.529412 L1581.06353,919.529412 L1581.06353,1179.29412 L1321.41176,919.529412 L1242.24,919.529412 L1242.24,467.877647 L677.647059,467.877647 L0,467.877647 L0,1484.34824 L338.710588,1484.34824 L338.710588,1903.24706 L756.705882,1484.34824 L1242.24,1484.34824 L1242.24,1032.47059 L1274.99294,1032.47059 L1694.11765,1451.59529 L1694.11765,1032.47059 L1920,1032.47059 L1920,16 L677.647059,16 Z M338.789647,919.563294 L903.495529,919.563294 L903.495529,806.622118 L338.789647,806.622118 L338.789647,919.563294 Z M338.789647,1145.44565 L677.726118,1145.44565 L677.726118,1032.39153 L338.789647,1032.39153 L338.789647,1145.44565 Z M112.941176,580.705882 L1129.41176,580.705882 L1129.41176,1371.40706 L710.4,1371.40706 L451.651765,1631.05882 L451.651765,1371.40706 L112.941176,1371.40706 L112.941176,580.705882 Z" fill-rule="evenodd" stroke="none" stroke-width="1"></path></g></svg>';
-        const quiz_svg = '<svg class="bettercanvas-todo-svg" label="Quiz" name="IconQuiz" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false"  ><g role="presentation"><g fill-rule="evenodd" stroke="none" stroke-width="1"><path d="M746.255375,1466.76417 L826.739372,1547.47616 L577.99138,1796.11015 L497.507383,1715.51216 L746.255375,1466.76417 Z M580.35118,1300.92837 L660.949178,1381.52637 L329.323189,1713.15236 L248.725192,1632.55436 L580.35118,1300.92837 Z M414.503986,1135.20658 L495.101983,1215.80457 L80.5979973,1630.30856 L0,1549.71056 L414.503986,1135.20658 Z M1119.32036,264.600006 C1475.79835,-91.8779816 1844.58834,86.3040124 1848.35034,88.1280123 L1848.35034,88.1280123 L1865.45034,96.564012 L1873.88634,113.664011 C1875.71034,117.312011 2053.89233,486.101999 1697.30034,842.693987 L1697.30034,842.693987 L1550.69635,989.297982 L1548.07435,1655.17196 L1325.43235,1877.81395 L993.806366,1546.30196 L415.712386,968.207982 L84.0863971,636.467994 L306.72839,413.826001 L972.602367,411.318001 Z M1436.24035,1103.75398 L1074.40436,1465.70397 L1325.43235,1716.61796 L1434.30235,1607.74796 L1436.24035,1103.75398 Z M1779.26634,182.406009 C1710.18234,156.41401 1457.90035,87.1020124 1199.91836,345.198004 L1199.91836,345.198004 L576.90838,968.207982 L993.806366,1385.10597 L1616.70235,762.095989 C1873.65834,505.139998 1804.68834,250.920007 1779.26634,182.406009 Z M858.146371,525.773997 L354.152388,527.597997 L245.282392,636.467994 L496.310383,887.609985 L858.146371,525.773997 Z"></path><path d="M1534.98715,372.558003 C1483.91515,371.190003 1403.31715,385.326002 1321.69316,466.949999 L1281.22316,507.305998 L1454.61715,680.585992 L1494.97315,640.343994 C1577.16715,558.035996 1591.87315,479.033999 1589.82115,427.164001 L1587.65515,374.610003 L1534.98715,372.558003 Z"></path></g></g></svg>';
-        const announcement_svg = '<svg class="bettercanvas-todo-svg" label="Announcement" name="IconAnnouncement" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false" ><g role="presentation"><path d="M1587.16235,31.2784941 C1598.68235,7.78672942 1624.43294,-4.41091764 1650.63529,1.46202354 C1676.16,7.56084707 1694.11765,30.2620235 1694.11765,56.4643765 L1694.11765,56.4643765 L1694.11765,570.459671 C1822.87059,596.662024 1920,710.732612 1920,847.052612 C1920,983.372612 1822.87059,1097.55614 1694.11765,1123.75849 L1694.11765,1123.75849 L1694.11765,1637.64085 C1694.11765,1663.8432 1676.16,1686.65732 1650.63529,1692.6432 C1646.23059,1693.65967 1641.93882,1694.11144 1637.64706,1694.11144 C1616.52706,1694.11144 1596.87529,1682.36555 1587.16235,1662.93967 C1379.23765,1247.2032 964.178824,1242.34673 960,1242.34673 L960,1242.34673 L564.705882,1242.34673 L564.705882,1807.05261 L652.461176,1807.05261 C640.602353,1716.92555 634.955294,1560.05026 715.934118,1456.37026 C768.338824,1389.2832 845.590588,1355.28791 945.882353,1355.28791 L945.882353,1355.28791 L945.882353,1468.22908 C881.392941,1468.22908 835.312941,1487.09026 805.044706,1525.71614 C736.263529,1613.58438 759.981176,1789.54673 774.776471,1849.97026 C778.955294,1866.79849 775.115294,1884.6432 764.498824,1898.30908 C753.769412,1911.97496 737.28,1919.99379 720,1919.99379 L720,1919.99379 L508.235294,1919.99379 C477.063529,1919.99379 451.764706,1894.80791 451.764706,1863.5232 L451.764706,1863.5232 L451.764706,1242.34673 L395.294118,1242.34673 C239.548235,1242.34673 112.941176,1115.73967 112.941176,959.993788 L112.941176,959.993788 L112.941176,903.5232 L56.4705882,903.5232 C25.2988235,903.5232 0,878.337318 0,847.052612 C0,815.880847 25.2988235,790.582024 56.4705882,790.582024 L56.4705882,790.582024 L112.941176,790.582024 L112.941176,734.111435 C112.941176,578.478494 239.548235,451.758494 395.294118,451.758494 L395.294118,451.758494 L959.887059,451.758494 C976.828235,451.645553 1380.36706,444.756141 1587.16235,31.2784941 Z M1581.17647,249.706729 C1386.46588,492.078494 1128.96,547.871435 1016.47059,560.746729 L1016.47059,560.746729 L1016.47059,1133.47144 C1128.96,1146.34673 1386.46588,1202.02673 1581.17647,1444.51144 L1581.17647,1444.51144 Z M903.529412,564.699671 L395.294118,564.699671 C301.891765,564.699671 225.882353,640.709082 225.882353,734.111435 L225.882353,734.111435 L225.882353,959.993788 C225.882353,1053.39614 301.891765,1129.40555 395.294118,1129.40555 L395.294118,1129.40555 L903.529412,1129.40555 L903.529412,564.699671 Z M1694.11765,688.144376 L1694.11765,1006.07379 C1759.73647,982.694965 1807.05882,920.577318 1807.05882,847.052612 C1807.05882,773.527906 1759.73647,711.5232 1694.11765,688.144376 L1694.11765,688.144376 Z" fill-rule="evenodd" stroke="none" stroke-width="1"></path></g></svg>';
-        const assignment_svg = '<svg class="bettercanvas-todo-svg" label="Assignment" name="IconAssignment" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false"><g role="presentation"><path d="M1468.2137,0 L1468.2137,564.697578 L1355.27419,564.697578 L1355.27419,112.939516 L112.939516,112.939516 L112.939516,1807.03225 L1355.27419,1807.03225 L1355.27419,1581.15322 L1468.2137,1581.15322 L1468.2137,1919.97177 L2.5243549e-29,1919.97177 L2.5243549e-29,0 L1468.2137,0 Z M1597.64239,581.310981 C1619.77853,559.174836 1655.46742,559.174836 1677.60356,581.310981 L1677.60356,581.310981 L1903.4826,807.190012 C1925.5058,829.213217 1925.5058,864.902104 1903.4826,887.038249 L1903.4826,887.038249 L1225.8455,1564.67534 C1215.22919,1575.17872 1200.88587,1581.16451 1185.86491,1581.16451 L1185.86491,1581.16451 L959.985883,1581.16451 C928.814576,1581.16451 903.516125,1555.86606 903.516125,1524.69475 L903.516125,1524.69475 L903.516125,1298.81572 C903.516125,1283.79477 909.501919,1269.45145 920.005294,1258.94807 L920.005294,1258.94807 Z M1442.35055,896.29929 L1016.45564,1322.1942 L1016.45564,1468.225 L1162.48643,1468.225 L1588.38135,1042.33008 L1442.35055,896.29929 Z M677.637094,1242.34597 L677.637094,1355.28548 L338.818547,1355.28548 L338.818547,1242.34597 L677.637094,1242.34597 Z M903.516125,1016.46693 L903.516125,1129.40645 L338.818547,1129.40645 L338.818547,1016.46693 L903.516125,1016.46693 Z M1637.62298,701.026867 L1522.19879,816.451052 L1668.22958,962.481846 L1783.65377,847.057661 L1637.62298,701.026867 Z M1129.39516,338.829841 L1129.39516,790.587903 L338.818547,790.587903 L338.818547,338.829841 L1129.39516,338.829841 Z M1016.45564,451.769356 L451.758062,451.769356 L451.758062,677.648388 L1016.45564,677.648388 L1016.45564,451.769356 Z" fill-rule="evenodd" stroke="none" stroke-width="1"></path></g></svg>';
+        await getColors();
+        const discussion_svg = '<svg class="canvasrefined-todo-svg" name="IconDiscussion" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false"  ><g role="presentation"><path d="M677.647059,16 L677.647059,354.936471 L790.588235,354.936471 L790.588235,129.054118 L1807.05882,129.054118 L1807.05882,919.529412 L1581.06353,919.529412 L1581.06353,1179.29412 L1321.41176,919.529412 L1242.24,919.529412 L1242.24,467.877647 L677.647059,467.877647 L0,467.877647 L0,1484.34824 L338.710588,1484.34824 L338.710588,1903.24706 L756.705882,1484.34824 L1242.24,1484.34824 L1242.24,1032.47059 L1274.99294,1032.47059 L1694.11765,1451.59529 L1694.11765,1032.47059 L1920,1032.47059 L1920,16 L677.647059,16 Z M338.789647,919.563294 L903.495529,919.563294 L903.495529,806.622118 L338.789647,806.622118 L338.789647,919.563294 Z M338.789647,1145.44565 L677.726118,1145.44565 L677.726118,1032.39153 L338.789647,1032.39153 L338.789647,1145.44565 Z M112.941176,580.705882 L1129.41176,580.705882 L1129.41176,1371.40706 L710.4,1371.40706 L451.651765,1631.05882 L451.651765,1371.40706 L112.941176,1371.40706 L112.941176,580.705882 Z" fill-rule="evenodd" stroke="none" stroke-width="1"></path></g></svg>';
+        const quiz_svg = '<svg class="canvasrefined-todo-svg" label="Quiz" name="IconQuiz" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false"  ><g role="presentation"><g fill-rule="evenodd" stroke="none" stroke-width="1"><path d="M746.255375,1466.76417 L826.739372,1547.47616 L577.99138,1796.11015 L497.507383,1715.51216 L746.255375,1466.76417 Z M580.35118,1300.92837 L660.949178,1381.52637 L329.323189,1713.15236 L248.725192,1632.55436 L580.35118,1300.92837 Z M414.503986,1135.20658 L495.101983,1215.80457 L80.5979973,1630.30856 L0,1549.71056 L414.503986,1135.20658 Z M1119.32036,264.600006 C1475.79835,-91.8779816 1844.58834,86.3040124 1848.35034,88.1280123 L1848.35034,88.1280123 L1865.45034,96.564012 L1873.88634,113.664011 C1875.71034,117.312011 2053.89233,486.101999 1697.30034,842.693987 L1697.30034,842.693987 L1550.69635,989.297982 L1548.07435,1655.17196 L1325.43235,1877.81395 L993.806366,1546.30196 L415.712386,968.207982 L84.0863971,636.467994 L306.72839,413.826001 L972.602367,411.318001 Z M1436.24035,1103.75398 L1074.40436,1465.70397 L1325.43235,1716.61796 L1434.30235,1607.74796 L1436.24035,1103.75398 Z M1779.26634,182.406009 C1710.18234,156.41401 1457.90035,87.1020124 1199.91836,345.198004 L1199.91836,345.198004 L576.90838,968.207982 L993.806366,1385.10597 L1616.70235,762.095989 C1873.65834,505.139998 1804.68834,250.920007 1779.26634,182.406009 Z M858.146371,525.773997 L354.152388,527.597997 L245.282392,636.467994 L496.310383,887.609985 L858.146371,525.773997 Z"></path><path d="M1534.98715,372.558003 C1483.91515,371.190003 1403.31715,385.326002 1321.69316,466.949999 L1281.22316,507.305998 L1454.61715,680.585992 L1494.97315,640.343994 C1577.16715,558.035996 1591.87315,479.033999 1589.82115,427.164001 L1587.65515,374.610003 L1534.98715,372.558003 Z"></path></g></g></svg>';
+        const announcement_svg = '<svg class="canvasrefined-todo-svg" label="Announcement" name="IconAnnouncement" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false" ><g role="presentation"><path d="M1587.16235,31.2784941 C1598.68235,7.78672942 1624.43294,-4.41091764 1650.63529,1.46202354 C1676.16,7.56084707 1694.11765,30.2620235 1694.11765,56.4643765 L1694.11765,56.4643765 L1694.11765,570.459671 C1822.87059,596.662024 1920,710.732612 1920,847.052612 C1920,983.372612 1822.87059,1097.55614 1694.11765,1123.75849 L1694.11765,1123.75849 L1694.11765,1637.64085 C1694.11765,1663.8432 1676.16,1686.65732 1650.63529,1692.6432 C1646.23059,1693.65967 1641.93882,1694.11144 1637.64706,1694.11144 C1616.52706,1694.11144 1596.87529,1682.36555 1587.16235,1662.93967 C1379.23765,1247.2032 964.178824,1242.34673 960,1242.34673 L960,1242.34673 L564.705882,1242.34673 L564.705882,1807.05261 L652.461176,1807.05261 C640.602353,1716.92555 634.955294,1560.05026 715.934118,1456.37026 C768.338824,1389.2832 845.590588,1355.28791 945.882353,1355.28791 L945.882353,1355.28791 L945.882353,1468.22908 C881.392941,1468.22908 835.312941,1487.09026 805.044706,1525.71614 C736.263529,1613.58438 759.981176,1789.54673 774.776471,1849.97026 C778.955294,1866.79849 775.115294,1884.6432 764.498824,1898.30908 C753.769412,1911.97496 737.28,1919.99379 720,1919.99379 L720,1919.99379 L508.235294,1919.99379 C477.063529,1919.99379 451.764706,1894.80791 451.764706,1863.5232 L451.764706,1863.5232 L451.764706,1242.34673 L395.294118,1242.34673 C239.548235,1242.34673 112.941176,1115.73967 112.941176,959.993788 L112.941176,959.993788 L112.941176,903.5232 L56.4705882,903.5232 C25.2988235,903.5232 0,878.337318 0,847.052612 C0,815.880847 25.2988235,790.582024 56.4705882,790.582024 L56.4705882,790.582024 L112.941176,790.582024 L112.941176,734.111435 C112.941176,578.478494 239.548235,451.758494 395.294118,451.758494 L395.294118,451.758494 L959.887059,451.758494 C976.828235,451.645553 1380.36706,444.756141 1587.16235,31.2784941 Z M1581.17647,249.706729 C1386.46588,492.078494 1128.96,547.871435 1016.47059,560.746729 L1016.47059,560.746729 L1016.47059,1133.47144 C1128.96,1146.34673 1386.46588,1202.02673 1581.17647,1444.51144 L1581.17647,1444.51144 Z M903.529412,564.699671 L395.294118,564.699671 C301.891765,564.699671 225.882353,640.709082 225.882353,734.111435 L225.882353,734.111435 L225.882353,959.993788 C225.882353,1053.39614 301.891765,1129.40555 395.294118,1129.40555 L395.294118,1129.40555 L903.529412,1129.40555 L903.529412,564.699671 Z M1694.11765,688.144376 L1694.11765,1006.07379 C1759.73647,982.694965 1807.05882,920.577318 1807.05882,847.052612 C1807.05882,773.527906 1759.73647,711.5232 1694.11765,688.144376 L1694.11765,688.144376 Z" fill-rule="evenodd" stroke="none" stroke-width="1"></path></g></svg>';
+        const assignment_svg = '<svg class="canvasrefined-todo-svg" label="Assignment" name="IconAssignment" viewBox="0 0 1920 1920" rotate="0" aria-hidden="true" role="presentation" focusable="false"><g role="presentation"><path d="M1468.2137,0 L1468.2137,564.697578 L1355.27419,564.697578 L1355.27419,112.939516 L112.939516,112.939516 L112.939516,1807.03225 L1355.27419,1807.03225 L1355.27419,1581.15322 L1468.2137,1581.15322 L1468.2137,1919.97177 L2.5243549e-29,1919.97177 L2.5243549e-29,0 L1468.2137,0 Z M1597.64239,581.310981 C1619.77853,559.174836 1655.46742,559.174836 1677.60356,581.310981 L1677.60356,581.310981 L1903.4826,807.190012 C1925.5058,829.213217 1925.5058,864.902104 1903.4826,887.038249 L1903.4826,887.038249 L1225.8455,1564.67534 C1215.22919,1575.17872 1200.88587,1581.16451 1185.86491,1581.16451 L1185.86491,1581.16451 L959.985883,1581.16451 C928.814576,1581.16451 903.516125,1555.86606 903.516125,1524.69475 L903.516125,1524.69475 L903.516125,1298.81572 C903.516125,1283.79477 909.501919,1269.45145 920.005294,1258.94807 L920.005294,1258.94807 Z M1442.35055,896.29929 L1016.45564,1322.1942 L1016.45564,1468.225 L1162.48643,1468.225 L1588.38135,1042.33008 L1442.35055,896.29929 Z M677.637094,1242.34597 L677.637094,1355.28548 L338.818547,1355.28548 L338.818547,1242.34597 L677.637094,1242.34597 Z M903.516125,1016.46693 L903.516125,1129.40645 L338.818547,1129.40645 L338.818547,1016.46693 L903.516125,1016.46693 Z M1637.62298,701.026867 L1522.19879,816.451052 L1668.22958,962.481846 L1783.65377,847.057661 L1637.62298,701.026867 Z M1129.39516,338.829841 L1129.39516,790.587903 L338.818547,790.587903 L338.818547,338.829841 L1129.39516,338.829841 Z M1016.45564,451.769356 L451.758062,451.769356 L451.758062,677.648388 L1016.45564,677.648388 L1016.45564,451.769356 Z" fill-rule="evenodd" stroke="none" stroke-width="1"></path></g></svg>';
         const x_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M18 6l-12 12"></path><path d="M6 6l12 12"></path></svg>';
         const check_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M5 12l5 5l10 -10"></path></svg>';
         const tag_svg = '<svg  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3z" /></svg>';
@@ -1528,8 +2673,8 @@ function loadBetterTodo() {
         const hr24 = options.todo_hr24;
         const now = new Date();
         //const csrfToken = CSRFtoken();
-        let todoAnnouncements = document.querySelector("#bettercanvas-announcement-list");
-        let todoAssignments = document.querySelector("#bettercanvas-todo-list");
+        let todoAnnouncements = document.querySelector("#canvasrefined-announcement-list");
+        let todoAssignments = document.querySelector("#canvasrefined-todo-list");
         let assignmentsToInsert = [];
         let announcementsToInsert = [];
 
@@ -1563,36 +2708,42 @@ function loadBetterTodo() {
                     if (filter === "todo" && ((itemState && itemState["rem"] === true) || (item.planner_override && item.planner_override.marked_complete === true))) return;
 
                     let listItemContainer = document.createElement("div");
-                    listItemContainer.classList.add("bettercanvas-todo-container");
-                    listItemContainer.innerHTML = '<div class="bettercanvas-hover-preview"><p class="bettercanvas-preview-title"></p><p class="bettercanvas-preview-text"></p></div><div class="bettercanvas-todo-actions"></div><div class="bettercanvas-todo-icon"></div><a class="bettercanvas-todo-item"><div class="bettercanvas-todo-item-header"></div></a><button class="bettercanvas-todo-actions-btn"><i class="icon-more bettercanvas-dots-icon" aria-hidden="true"></i></button>';
-                    listItemContainer.querySelector(".bettercanvas-todo-item").href = item.html_url;
+                    listItemContainer.classList.add("canvasrefined-todo-container");
+                    listItemContainer.innerHTML = '<div class="canvasrefined-hover-preview"><p class="canvasrefined-preview-title"></p><p class="canvasrefined-preview-text"></p></div><div class="canvasrefined-todo-actions"></div><div class="canvasrefined-todo-icon"></div><a class="canvasrefined-todo-item"><div class="canvasrefined-todo-item-header"></div></a><button class="canvasrefined-todo-actions-btn"><i class="icon-more canvasrefined-dots-icon" aria-hidden="true"></i></button>';
+                    listItemContainer.querySelector(".canvasrefined-todo-item").href = item.html_url;
                     listItemContainer.dataset.id = item.plannable_id;
-                    listItemContainer.querySelector('.bettercanvas-todo-icon').innerHTML += svg;
+                    listItemContainer.querySelector('.canvasrefined-todo-icon').innerHTML += svg;
 
-                    let listItem = listItemContainer.querySelector(".bettercanvas-todo-item");
+                    let listItem = listItemContainer.querySelector(".canvasrefined-todo-item");
+                    const courseColor =
+                        options.custom_cards_3?.[String(item.course_id)]?.color ??
+                        options.custom_cards_3?.[item.course_id]?.color ??
+                        options.custom_cards_3?.[item.plannable?.course_id]?.color ??
+                        "#cccccc";
                     if (itemState?.["lbl"] && itemState["lbl"] !== "") {
-                        makeElement("span", listItem.querySelector(".bettercanvas-todo-item-header"), { "className": "bettercanvas-todo-label", "textContent": itemState["lbl"] });
+                        makeElement("span", listItem.querySelector(".canvasrefined-todo-item-header"), { "className": "canvasrefined-todo-label", "textContent": itemState["lbl"] });
                     }
                     if (itemState?.["crs"] === true) {
-                        listItemContainer.querySelector(".bettercanvas-todo-item").style.textDecoration = "line-through";
+                        listItemContainer.querySelector(".canvasrefined-todo-item").style.textDecoration = "line-through";
                     }
-                    let title = makeElement("a", listItem.querySelector(".bettercanvas-todo-item-header"), { "className": "bettercanvas-todoitem-title", "textContent": item.plannable.title });
-                    if (options.todo_hide_feedback === true) title.style = "color:" + (options.custom_cards_3?.[item.course_id]?.color || "inherit") + "!important;";
-                    makeElement("p", listItem, { "className": "bettercanvas-todoitem-course", "textContent": item.context_name });
+                    let title = makeElement("a", listItem.querySelector(".canvasrefined-todo-item-header"), { "className": "canvasrefined-todoitem-title", "textContent": item.plannable.title });
+                    if (options.todo_hide_feedback === true) title.style = "color:" + courseColor + "!important;";
+                    let course = makeElement("p", listItem, { "className": "canvasrefined-todoitem-course", "textContent": item.context_name });
+                    course.style.color = courseColor;
                     let format = formatTodoDate(date, item.submissions, hr24);
-                    let todoDate = makeElement("p", listItem, { "className": "bettercanvas-todoitem-date", "textContent": format.date });
-                    if (format.dueSoon) todoDate.classList.add("bettercanvas-due-soon");
+                    let todoDate = makeElement("p", listItem, { "className": "canvasrefined-todoitem-date", "textContent": format.date });
+                    if (format.dueSoon) todoDate.classList.add("canvasrefined-due-soon");
 
                     if (options.hover_preview === true) {
                         const customItem = item.planner_override && item.planner_override.custom && item.planner_override.custom === true;
                         listItem.addEventListener("mouseover", () => {
-                            listItem.classList.add("bettercanvas-todo-hover");
-                            let preview = listItemContainer.querySelector(".bettercanvas-hover-preview");
-                            let previewTitle = preview.querySelector(".bettercanvas-preview-title");
-                            let previewText = preview.querySelector(".bettercanvas-preview-text");
+                            listItem.classList.add("canvasrefined-todo-hover");
+                            let preview = listItemContainer.querySelector(".canvasrefined-hover-preview");
+                            let previewTitle = preview.querySelector(".canvasrefined-preview-title");
+                            let previewText = preview.querySelector(".canvasrefined-preview-text");
                             clearTimeout(delay);
                             delay = setTimeout(async () => {
-                                if (listItem.classList.contains("bettercanvas-todo-hover")) {
+                                if (listItem.classList.contains("canvasrefined-todo-hover")) {
                                     previewTitle.textContent = item.plannable.title;
                                     // custom assignment
                                     if (customItem) {
@@ -1634,38 +2785,38 @@ function loadBetterTodo() {
                         });
 
                         listItem.addEventListener("mouseleave", () => {
-                            listItem.classList.remove("bettercanvas-todo-hover");
-                            listItemContainer.querySelector(".bettercanvas-hover-preview").style.display = "none";
+                            listItem.classList.remove("canvasrefined-todo-hover");
+                            listItemContainer.querySelector(".canvasrefined-hover-preview").style.display = "none";
                         });
                     }
 
-                    const actions = listItemContainer.querySelector(".bettercanvas-todo-actions");
+                    const actions = listItemContainer.querySelector(".canvasrefined-todo-actions");
 
                     let clickOutActions = (e) => {
-                        if (e.target.className.includes("bettercanvas")) return;
+                        if (e.target.className.includes("canvasrefined")) return;
                         document.body.removeEventListener("click", clickOutActions);
                         actions.style.display = "none";
                     }
 
-                    listItemContainer.querySelector(".bettercanvas-todo-actions-btn").addEventListener("click", () => {
+                    listItemContainer.querySelector(".canvasrefined-todo-actions-btn").addEventListener("click", () => {
                         actions.style.display = "block";
                         setTimeout(() => {
                             document.body.addEventListener("click", clickOutActions);
                         }, 100);
                     });
 
-                    let removeBtn = makeElement("div", actions, { "className": "bettercanvas-todo-action", "textContent": "Remove" });
+                    let removeBtn = makeElement("div", actions, { "className": "canvasrefined-todo-action", "textContent": "Remove" });
                     removeBtn.innerHTML += x_svg;
                     const dueAt = new Date(item.plannable_date).getTime();
 
-                    let crossOffBtn = makeElement("div", actions, { "className": "bettercanvas-todo-action", "textContent": "Cross off" });
+                    let crossOffBtn = makeElement("div", actions, { "className": "canvasrefined-todo-action", "textContent": "Cross off" });
                     crossOffBtn.innerHTML += check_svg;
                     crossOffBtn.addEventListener("click", () => {
-                        setAssignmentState(item.plannable_id, { "crs": listItemContainer.querySelector(".bettercanvas-todo-item").style.textDecoration === "line-through" ? false : true, "expire": dueAt });
+                        setAssignmentState(item.plannable_id, { "crs": listItemContainer.querySelector(".canvasrefined-todo-item").style.textDecoration === "line-through" ? false : true, "expire": dueAt });
                     });
-                    let label = makeElement("span", actions, { "className": "bettercanvas-todo-action-tag", "textContent": "Label:" });
+                    let label = makeElement("span", actions, { "className": "canvasrefined-todo-action-tag", "textContent": "Label:" });
                     label.innerHTML += tag_svg;
-                    let labelInput = makeElement("input", actions, { "className": "bettercanvas-todo-input", "type": "text", "placeholder": "Label", "value": itemState && itemState["lbl"] ? itemState["lbl"] : "" });
+                    let labelInput = makeElement("input", actions, { "className": "canvasrefined-todo-input", "type": "text", "placeholder": "Label", "value": itemState && itemState["lbl"] ? itemState["lbl"] : "" });
                     labelInput.addEventListener("change", (e) => {
                         setAssignmentState(item.plannable_id, { "lbl": e.target.value, "expire": dueAt });
                     });
@@ -1718,7 +2869,7 @@ function loadBetterTodo() {
                     });
                     /*
                     // remove item button
-                    listItemContainer.querySelector(".bettercanvas-todo-complete-btn").addEventListener('click', function () {
+                    listItemContainer.querySelector(".canvasrefined-todo-complete-btn").addEventListener('click', function () {
                         if (item.planner_override && item.planner_override.custom && item.planner_override.custom === true) {
                             // set item as complete locally
                             chrome.storage.sync.get("custom_assignments_overflow", overflow => {
@@ -1772,7 +2923,7 @@ function loadBetterTodo() {
                     } else {
                         assignmentsToInsert.push(listItemContainer);
                         if (item.submissions && item.submissions.submitted) {
-                            listItemContainer.classList.add("bettercanvas-todo-item-completed");
+                            listItemContainer.classList.add("canvasrefined-todo-item-completed");
                         }
                     }
                     //}
@@ -1790,7 +2941,7 @@ function loadBetterTodo() {
                     }
                     if (i !== assignmentsToInsert.length) createTodoViewMore(todoAssignments, "assignment");
                 } else {
-                    makeElement("p", todoAssignments, { "className": "bettercanvas-none-due", "textContent": "None" });
+                    makeElement("p", todoAssignments, { "className": "canvasrefined-none-due", "textContent": "None" });
                 }
 
                 // appending announcements all at once
@@ -1802,7 +2953,7 @@ function loadBetterTodo() {
                     }
                     if (i !== -1) createTodoViewMore(todoAnnouncements, "announcement");
                 } else {
-                    makeElement("p", todoAnnouncements, { "className": "bettercanvas-none-due", "textContent": "None" });
+                    makeElement("p", todoAnnouncements, { "className": "canvasrefined-none-due", "textContent": "None" });
                 }
 
                 cleanCustomAssignments();
@@ -1932,26 +3083,26 @@ function toggleDarkMode() {
         style.textContent = css;
         document.documentElement.append(style);
         style.id = 'darkcss';
-        style.className = "bettercanvas-darkmode-enabled";
+        style.className = "canvasrefined-darkmode-enabled";
         darkStyleInserted = true;
     } else if (darkStyleInserted) {
         let style = document.querySelector("#darkcss");
         style.textContent = options.dark_mode === true || options.device_dark ? css : "";
-        style.className = options.dark_mode === true || options.device_dark ? "bettercanvas-darkmode-enabled" : "";
+        style.className = options.dark_mode === true || options.device_dark ? "canvasrefined-darkmode-enabled" : "";
     }
     /*
     if (options.dark_mode === true || options.device_dark) {
-        document.body.classList.add("bettercanvas--darkmode--enabled");
+        document.body.classList.add("canvasrefined--darkmode--enabled");
     } else {
-        document.body.classList.remove("bettercanvas--darkmode--enabled");
+        document.body.classList.remove("canvasrefined--darkmode--enabled");
     }
     */
     runiframeChecker();
 }
 
 function runDarkModeFixer(override = false) {
-    if (options.dark_mode !== true) return { "path": "bettercanvas-darkmode_off", "time": "" };
-    if (override === false && !options["dark_mode_fix"].includes(window.location.pathname)) return { "path": "bettercanvas-none", "time": "" };
+    if (options.dark_mode !== true) return { "path": "canvasrefined-darkmode_off", "time": "" };
+    if (override === false && !options["dark_mode_fix"].includes(window.location.pathname)) return { "path": "canvasrefined-none", "time": "" };
     let output = inspectDarkMode();
     return { "path": window.location.pathname, "time": output.time };
 }
@@ -1988,7 +3139,7 @@ function autoDarkModeCheck() {
 // 	if (options.scheduledReminderTime) {
 // 		let [hour, minute] = options.scheduledReminderTime.split(":");
 // 		if (parseInt(hour) == currentHour && parseInt(minute) == currentMinute) {
-// 			const container = document.getElementById("bettercanvas-reminders") || makeElement("div", document.body, { "id": "bettercanvas-reminders" });
+// 			const container = document.getElementById("canvasrefined-reminders") || makeElement("div", document.body, { "id": "canvasrefined-reminders" });
 // 			container.style.display = "flex";
 // 			container.textContent = "";
 // 			const storage = await chrome.storage.sync.get("reminders");
@@ -2026,7 +3177,7 @@ function runiframeChecker() {
         document.querySelectorAll('iframe').forEach((frame) => {
             if (frame.contentDocument && frame.contentDocument.documentElement && frame.contentDocument.documentElement.querySelector('#darkcss')) {
                 frame.contentDocument.documentElement.querySelector('#darkcss').textContent = '';
-                frame.contentDocument.body.classList.remove("bettercanvas--darkmode--enabled");
+                frame.contentDocument.body.classList.remove("canvasrefined--darkmode--enabled");
             }
         });
         return;
@@ -2039,7 +3190,7 @@ function runiframeChecker() {
                 const new_style_element = document.createElement("style");
                 new_style_element.textContent = generateDarkModeCSS();
                 new_style_element.id = "darkcss";
-                frame.contentDocument.body.classList.add("bettercanvas--darkmode--enabled");
+                frame.contentDocument.body.classList.add("canvasrefined--darkmode--enabled");
                 frame.contentDocument.documentElement.prepend(new_style_element);
             }
         }
@@ -2066,11 +3217,11 @@ function insertGrades() {
                             let gradepercent = grade.enrollments[0].has_grading_periods === true ? grade.enrollments[0].current_period_computed_current_score : grade.enrollments[0].computed_current_score;
                             //let gradepercent = grade.enrollments[0].computed_current_score;
                             let percent = (gradepercent || "--") + "%";
-                            let gradeContainer = cards[i].querySelector(".bettercanvas-card-grade") || makeElement("a", cards[i].querySelector(".ic-DashboardCard__header"), { "className": "bettercanvas-card-grade", "textContent": percent });
+                            let gradeContainer = cards[i].querySelector(".canvasrefined-card-grade") || makeElement("a", cards[i].querySelector(".ic-DashboardCard__header"), { "className": "canvasrefined-card-grade", "textContent": percent });
                             if (options.grade_hover === true) {
-                                gradeContainer.classList.add("bettercanvas-hover-only");
+                                gradeContainer.classList.add("canvasrefined-hover-only");
                             } else {
-                                gradeContainer.classList.remove("bettercanvas-hover-only");
+                                gradeContainer.classList.remove("canvasrefined-hover-only");
                             }
                             gradeContainer.setAttribute("href", `${domain}/courses/${course_id}/grades`);
                             gradeContainer.style.display = "block";
@@ -2083,7 +3234,7 @@ function insertGrades() {
             }
         });
     } else {
-        document.querySelectorAll('.bettercanvas-card-grade').forEach(grade => {
+        document.querySelectorAll('.canvasrefined-card-grade').forEach(grade => {
             grade.style.display = "none";
         });
     }
@@ -2108,20 +3259,20 @@ function setAssignmentStatus(id, status, assignments_done = []) {
 
 function createCardAssignment(assignment) {
     let assignmentContainer = document.createElement("div");
-    assignmentContainer.className = "bettercanvas-assignment-container";
-    let assignmentName = makeElement("a", assignmentContainer, { "className": "bettercanvas-assignment-link", "textContent": assignment.plannable.title, "href": assignment.html_url });
-    let assignmentDueAt = makeElement("span", assignmentContainer, { "className": "bettercanvas-assignment-dueat", "textContent": formatCardDue(new Date(assignment.plannable_date)) });
-    if (assignment.overdue === true) assignmentDueAt.classList.add("bettercanvas-assignment-overdue");
+    assignmentContainer.className = "canvasrefined-assignment-container";
+    let assignmentName = makeElement("a", assignmentContainer, { "className": "canvasrefined-assignment-link", "textContent": assignment.plannable.title, "href": assignment.html_url });
+    let assignmentDueAt = makeElement("span", assignmentContainer, { "className": "canvasrefined-assignment-dueat", "textContent": formatCardDue(new Date(assignment.plannable_date)) });
+    if (assignment.overdue === true) assignmentDueAt.classList.add("canvasrefined-assignment-overdue");
     if (assignment?.submissions?.submitted === true) {
-        assignmentContainer.classList.add("bettercanvas-completed");
+        assignmentContainer.classList.add("canvasrefined-completed");
     } else {
         if (options.assignment_states[assignment.plannable_id]?.["crs"] === true) {
-            assignmentContainer.classList.add("bettercanvas-completed");
+            assignmentContainer.classList.add("canvasrefined-completed");
         }
     }
     assignmentDueAt.addEventListener('mouseup', function () {
-        assignmentContainer.classList.toggle("bettercanvas-completed");
-        const status = assignmentContainer.classList.contains("bettercanvas-completed");
+        assignmentContainer.classList.toggle("canvasrefined-completed");
+        const status = assignmentContainer.classList.contains("canvasrefined-completed");
         setAssignmentState(assignment.plannable_id, { "crs": status, "expire": assignment.plannable_date });
     });
     return assignmentContainer;
@@ -2158,11 +3309,12 @@ function preloadAssignmentEls() {
 
 function loadCardAssignments() {
     if (options.assignments_due !== true) {
-        document.querySelectorAll(".bettercanvas-card-assignment").forEach(card => {
+        document.querySelectorAll(".canvasrefined-card-assignment").forEach(card => {
             card.style.display = "none";
         });
         return;
     }
+    setupCardAssignments();
     cardAssignments.then(els => {
         try {
             let cards = document.querySelectorAll('.ic-DashboardCard');
@@ -2174,9 +3326,12 @@ function loadCardAssignments() {
                 let link = card.querySelector(".ic-DashboardCard__link");
                 if (!link) return;
                 let course_id = link.href.split("courses/")[1];
-                let cardContainer = card.querySelector('.bettercanvas-card-container');
+                let cardContainer = card.querySelector('.canvasrefined-card-container');
+                if (!cardContainer) return;
                 cardContainer.textContent = "";
-                cardContainer.parentElement.style.display = "block";
+                if (cardContainer.parentElement) {
+                    cardContainer.parentElement.style.display = "block";
+                }
 
                 if (els[course_id]) {
                     els[course_id].forEach(assignment => {
@@ -2185,15 +3340,15 @@ function loadCardAssignments() {
                         if ((options.card_overdues !== true && now >= assignment.due) || (options.card_overdues === true && assignment.submitted === true)) return;
                         if (assignment.type !== "assignment" && assignment.type !== "quiz" && assignment.type !== "discussion_topic") return;
                         if (assignment.override === true) return;
-                        //assignment.el.querySelector(".bettercanvas-assignment-dueat").textContent = formatCardDue(assignment.due);
+                        //assignment.el.querySelector(".canvasrefined-assignment-dueat").textContent = formatCardDue(assignment.due);
                         cardContainer.appendChild(assignment.el);
                         count++;
                     });
                 }
 
                 if (count === 0) {
-                    let assignmentContainer = makeElement("div", cardContainer, { "className": "bettercanvas-assignment-container" });
-                    let assignmentDivLink = makeElement("a", assignmentContainer, { "className": "bettercanvas-assignment-link", "textContent": "None" });
+                    let assignmentContainer = makeElement("div", cardContainer, { "className": "canvasrefined-assignment-container" });
+                    let assignmentDivLink = makeElement("a", assignmentContainer, { "className": "canvasrefined-assignment-link", "textContent": "None" });
                 }
             });
         } catch (e) {
@@ -2215,7 +3370,7 @@ function loadCardAssignments2(c = null) {
                 cards.forEach(card => {
                     let count = 0;
                     let course_id = parseInt(card.querySelector(".ic-DashboardCard__link").href.split("courses/")[1]);
-                    let cardContainer = card.querySelector('.bettercanvas-card-container');
+                    let cardContainer = card.querySelector('.canvasrefined-card-container');
                     cardContainer.textContent = "";
                     cardContainer.parentElement.style.display = "block";
 
@@ -2240,8 +3395,8 @@ function loadCardAssignments2(c = null) {
                     });
 
                     if (count === 0) {
-                        let assignmentContainer = makeElement("div", "bettercanvas-assignment-container", cardContainer);
-                        let assignmentDivLink = makeElement("a", "bettercanvas-assignment-link", assignmentContainer, "None");
+                        let assignmentContainer = makeElement("div", "canvasrefined-assignment-container", cardContainer);
+                        let assignmentDivLink = makeElement("a", "canvasrefined-assignment-link", assignmentContainer, "None");
                     }
                 });
             });
@@ -2249,7 +3404,7 @@ function loadCardAssignments2(c = null) {
             logError(e);
         }
     } else {
-        document.querySelectorAll(".bettercanvas-card-assignment").forEach(card => {
+        document.querySelectorAll(".canvasrefined-card-assignment").forEach(card => {
             card.style.display = "none";
         });
     }
@@ -2259,14 +3414,14 @@ function loadCardAssignments2(c = null) {
 function setupCardAssignments() {
     if (options.assignments_due !== true) return;
     try {
-        if (document.querySelectorAll('.ic-DashboardCard').length > 0 && document.querySelectorAll('.bettercanvas-card-container').length > 0) return;
+        if (document.querySelectorAll('.ic-DashboardCard').length > 0 && document.querySelectorAll('.canvasrefined-card-container').length > 0) return;
         let cards = document.querySelectorAll('.ic-DashboardCard');
         cards.forEach(card => {
-            let assignmentContainer = card.querySelector(".bettercanvas-card-assignment") || makeElement("div", card, { "className": "bettercanvas-card-assignment" });
-            let assignmentsDueHeader = card.querySelector(".bettercanvas-card-header-container") || makeElement("div", assignmentContainer, { "className": "bettercanvas-card-header-container" });
-            let assignmentsDueLabel = card.querySelector(".bettercanvas-card-header") || makeElement("h3", assignmentsDueHeader, { "className": "bettercanvas-card-header", "textContent": chrome.i18n.getMessage("due") });
-            let cardContainer = card.querySelector(".bettercanvas-card-container") || makeElement("div", assignmentContainer, { "className": "bettercanvas-card-container" });
-            let skeletonText = card.querySelector(".bettercanvas-skeleton-text") || makeElement("div", cardContainer, { "className": "bettercanvas-skeleton-text" });
+            let assignmentContainer = card.querySelector(".canvasrefined-card-assignment") || makeElement("div", card, { "className": "canvasrefined-card-assignment" });
+            let assignmentsDueHeader = card.querySelector(".canvasrefined-card-header-container") || makeElement("div", assignmentContainer, { "className": "canvasrefined-card-header-container" });
+            let assignmentsDueLabel = card.querySelector(".canvasrefined-card-header") || makeElement("h3", assignmentsDueHeader, { "className": "canvasrefined-card-header", "textContent": chrome.i18n.getMessage("due") });
+            let cardContainer = card.querySelector(".canvasrefined-card-container") || makeElement("div", assignmentContainer, { "className": "canvasrefined-card-container" });
+            let skeletonText = card.querySelector(".canvasrefined-skeleton-text") || makeElement("div", cardContainer, { "className": "canvasrefined-skeleton-text" });
         });
     } catch (e) {
         logError(e);
@@ -2341,7 +3496,7 @@ function customizeCards(c = null) {
             }
             links = card.querySelectorAll(".ic-DashboardCard__action");
             for (let i = 0; i < 4; i++) {
-                let img = links[i].querySelector(".bettercanvas-link-image") || makeElement("img", links[i], { "className": "bettercanvas-link-image" });
+                let img = links[i].querySelector(".canvasrefined-link-image") || makeElement("img", links[i], { "className": "canvasrefined-link-image" });
                 links[i].style.display = "inherit";
                 if (cardOptions_2.links[i].path === "none") {
                     links[i].style.display = "none";
@@ -2388,10 +3543,10 @@ GPA calculator
 
 function calculateGPA2() {
     let qualityPoints = 0, numCredits = 0, weightedQualityPoints = 0, cumulativePoints = 0, cumulativeCredits = 0;
-    document.querySelectorAll('.bettercanvas-gpa-course').forEach(course => {
-        const weight = course.querySelector('.bettercanvas-course-weight').value;
-        const credits = parseFloat(course.querySelector('.bettercanvas-course-credit').value);
-        const grade = parseFloat(course.querySelector('.bettercanvas-course-percent').value);
+    document.querySelectorAll('.canvasrefined-gpa-course').forEach(course => {
+        const weight = course.querySelector('.canvasrefined-course-weight').value;
+        const credits = parseFloat(course.querySelector('.canvasrefined-course-credit').value);
+        const grade = parseFloat(course.querySelector('.canvasrefined-course-percent').value);
         if (weight === "dnc" || !credits || !grade) return;
         let letter = "--";
         let gpa;
@@ -2443,7 +3598,7 @@ function calculateGPA2() {
             cumulativeCredits = credits;
         } else {
             */
-            course.querySelector(".bettercanvas-gpa-letter-grade").textContent = letter;
+            course.querySelector(".canvasrefined-gpa-letter-grade").textContent = letter;
 
             let weightMultiplier = 0;
             if (weight === "ap") {
@@ -2460,12 +3615,12 @@ function calculateGPA2() {
 
 
     });
-    document.querySelector("#bettercanvas-gpa-unweighted").textContent = (qualityPoints / numCredits).toFixed(2);
-    document.querySelector("#bettercanvas-gpa-weighted").textContent = (weightedQualityPoints / numCredits).toFixed(2);
-    const cGPA = document.querySelector("#bettercanvas-cumulative-gpa");
-    const g = parseFloat(cGPA.querySelector(".bettercanvas-course-percent").value);
-    const c = parseInt(cGPA.querySelector(".bettercanvas-course-credit").value);
-    document.querySelector("#bettercanvas-gpa-cumulative").textContent = (((options.gpa_calc_weighted === true ? weightedQualityPoints : qualityPoints) + (g * c)) / (numCredits + c)).toFixed(2);
+    document.querySelector("#canvasrefined-gpa-unweighted").textContent = (qualityPoints / numCredits).toFixed(2);
+    document.querySelector("#canvasrefined-gpa-weighted").textContent = (weightedQualityPoints / numCredits).toFixed(2);
+    const cGPA = document.querySelector("#canvasrefined-cumulative-gpa");
+    const g = parseFloat(cGPA.querySelector(".canvasrefined-course-percent").value);
+    const c = parseInt(cGPA.querySelector(".canvasrefined-course-credit").value);
+    document.querySelector("#canvasrefined-gpa-cumulative").textContent = (((options.gpa_calc_weighted === true ? weightedQualityPoints : qualityPoints) + (g * c)) / (numCredits + c)).toFixed(2);
 }
 
 function changeGPASettings(course_id, update) {
@@ -2494,15 +3649,15 @@ function createGPACalcCourse(location, course) {
     }
     if (customs.hidden === true) return;
 
-    let courseContainer = makeElement("div", location, { "className": course.id === "cumulative" ? "bettercanvas-gpa-cumulative" : "bettercanvas-gpa-course", "innerHTML": '<div class="bettercanvas-gpa-letter-grade"></div>' });
-    let courseName = makeElement("p", courseContainer, { "className": "bettercanvas-gpa-name", "textContent": customs.name === "" ? course.course_code : customs.name });
-    let changerContainer = makeElement("div", courseContainer, { "className": "bettercanvas-gpa-percent-container" });
+    let courseContainer = makeElement("div", location, { "className": course.id === "cumulative" ? "canvasrefined-gpa-cumulative" : "canvasrefined-gpa-course", "innerHTML": '<div class="canvasrefined-gpa-letter-grade"></div>' });
+    let courseName = makeElement("p", courseContainer, { "className": "canvasrefined-gpa-name", "textContent": customs.name === "" ? course.course_code : customs.name });
+    let changerContainer = makeElement("div", courseContainer, { "className": "canvasrefined-gpa-percent-container" });
 
-    let credits = makeElement("div", courseContainer, { "className": "bettercanvas-course-credits", "innerHTML": '<input class="bettercanvas-course-credit" value="1"></input><span class="bettercanvas-course-percent-sign">cr</span>' });
-    let creditsChanger = credits.querySelector(".bettercanvas-course-credit");
+    let credits = makeElement("div", courseContainer, { "className": "canvasrefined-course-credits", "innerHTML": '<input class="canvasrefined-course-credit" value="1"></input><span class="canvasrefined-course-percent-sign">cr</span>' });
+    let creditsChanger = credits.querySelector(".canvasrefined-course-credit");
     creditsChanger.value = customs.credits;
-    let changer = makeElement("input", changerContainer, { "className": "bettercanvas-course-percent" });
-    let percent = makeElement("span", changerContainer, { "className": "bettercanvas-course-percent-sign", "textContent": course.id === "cumulative" ? "/4" : "%" });
+    let changer = makeElement("input", changerContainer, { "className": "canvasrefined-course-percent" });
+    let percent = makeElement("span", changerContainer, { "className": "canvasrefined-course-percent-sign", "textContent": course.id === "cumulative" ? "/4" : "%" });
     let courseGrade = course?.enrollments[0].has_grading_periods === true ? course.enrollments[0].current_period_computed_current_score : course.enrollments[0].computed_current_score;
 
     if (customs["gr"] !== null) {
@@ -2514,14 +3669,14 @@ function createGPACalcCourse(location, course) {
     }
 
     if (course.id !== "cumulative") {
-        let weightSelections = makeElement("form", courseContainer, { "className": "bettercanvas-course-weights" });
-        weightSelections.innerHTML = '<select name="weight-selection" class="bettercanvas-course-weight"><option value="dnc">Do not count</option><option value="regular">Regular/College</option><option value="honors">Honors</option><option value="ap">AP/IB</option></select>';
-        let weightChanger = weightSelections.querySelector(".bettercanvas-course-weight");
+        let weightSelections = makeElement("form", courseContainer, { "className": "canvasrefined-course-weights" });
+        weightSelections.innerHTML = '<select name="weight-selection" class="canvasrefined-course-weight"><option value="dnc">Do not count</option><option value="regular">Regular/College</option><option value="honors">Honors</option><option value="ap">AP/IB</option></select>';
+        let weightChanger = weightSelections.querySelector(".canvasrefined-course-weight");
         weightChanger.value = changer.value === "--" ? "dnc" : customs.weight;   
-        weightChanger.addEventListener('change', () => changeGPASettings(course.id, { "weight": weightSelections.querySelector(".bettercanvas-course-weight").value }));
+        weightChanger.addEventListener('change', () => changeGPASettings(course.id, { "weight": weightSelections.querySelector(".canvasrefined-course-weight").value }));
 
-        let useCustomGr = makeElement("input", courseContainer, { "className": "bettercanvas-course-customgr", "type": "checkbox", "checked": customs.gr !== null ? true : false });
-        let useCustomGrLabel = makeElement("span", courseContainer, { "className": "bettercanvas-course-customgr-label", "textContent": "Save custom grade" });
+        let useCustomGr = makeElement("input", courseContainer, { "className": "canvasrefined-course-customgr", "type": "checkbox", "checked": customs.gr !== null ? true : false });
+        let useCustomGrLabel = makeElement("span", courseContainer, { "className": "canvasrefined-course-customgr-label", "textContent": "Save custom grade" });
         useCustomGr.addEventListener("input", () => {
             if (options["custom_cards"][course.id]) {
                 if (options["custom_cards"][course.id]["gr"] !== undefined && options["custom_cards"][course.id]["gr"] !== null) {
@@ -2542,7 +3697,7 @@ function createGPACalcCourse(location, course) {
         }
     });
 
-    credits.querySelector(".bettercanvas-course-credit").addEventListener('input', () => changeGPASettings(course.id, { "credits": credits.querySelector(".bettercanvas-course-credit").value }));
+    credits.querySelector(".canvasrefined-course-credit").addEventListener('input', () => changeGPASettings(course.id, { "credits": credits.querySelector(".canvasrefined-course-credit").value }));
     return courseContainer;
 }
 
@@ -2553,16 +3708,16 @@ function setupGPACalc() {
 
             if (!document.querySelector(".ic-DashboardCard__box__container")) return;
 
-            let container2 = document.querySelector(".bettercanvas-gpa-card") || document.createElement("div");
-            container2.className = "bettercanvas-gpa-card";
+            let container2 = document.querySelector(".canvasrefined-gpa-card") || document.createElement("div");
+            container2.className = "canvasrefined-gpa-card";
             container2.style.display = options.gpa_calc === true ? "inline-block" : "none";
 
-            container2.innerHTML = `<h3 class="bettercanvas-gpa-header">GPA</h3><div><div><p id="bettercanvas-gpa-unweighted"></p><p>Current</p></div><div style="display:${options["gpa_calc_weighted"] ? "block" : "none"}"><p id="bettercanvas-gpa-weighted"></p><p>Weighted</p></div><div style="display:${options["gpa_calc_cumulative"] ? "block" : "none"}"><p id="bettercanvas-gpa-cumulative"></p><p>Cumulative</p></div></div>`;
-            let editBtn = makeElement("button", container2, { "className": "bettercanvas-gpa-edit-btn", "textContent": "Edit Calculator" });
+            container2.innerHTML = `<h3 class="canvasrefined-gpa-header">GPA</h3><div><div><p id="canvasrefined-gpa-unweighted"></p><p>Current</p></div><div style="display:${options["gpa_calc_weighted"] ? "block" : "none"}"><p id="canvasrefined-gpa-weighted"></p><p>Weighted</p></div><div style="display:${options["gpa_calc_cumulative"] ? "block" : "none"}"><p id="canvasrefined-gpa-cumulative"></p><p>Cumulative</p></div></div>`;
+            let editBtn = makeElement("button", container2, { "className": "canvasrefined-gpa-edit-btn", "textContent": "Edit Calculator" });
 
-            let container = document.querySelector(".bettercanvas-gpa") || document.createElement("div");
-            container.className = "bettercanvas-gpa";
-            container.innerHTML = '<h3 class="bettercanvas-gpa-header">GPA Calculator</h3><div class="bettercanvas-gpa-courses-container"><div class="bettercanvas-gpa-courses"></div></div>';
+            let container = document.querySelector(".canvasrefined-gpa") || document.createElement("div");
+            container.className = "canvasrefined-gpa";
+            container.innerHTML = '<h3 class="canvasrefined-gpa-header">GPA Calculator</h3><div class="canvasrefined-gpa-courses-container"><div class="canvasrefined-gpa-courses"></div></div>';
 
             if (options.gpa_calc_prepend === true) {
                 document.querySelector(".ic-DashboardCard__box__container").prepend(container2);
@@ -2572,9 +3727,9 @@ function setupGPACalc() {
                 document.querySelector(".ic-DashboardCard__box__container").appendChild(container);
             }
 
-            let location = document.querySelector(".bettercanvas-gpa-courses");
+            let location = document.querySelector(".canvasrefined-gpa-courses");
             let cumulative = createGPACalcCourse(location, { "id": "cumulative", "enrollments": [{ "has_grading_periods": true, "current_period_computed_current_score": 0 }] });
-            cumulative.id = "bettercanvas-cumulative-gpa";
+            cumulative.id = "canvasrefined-cumulative-gpa";
             result.forEach(course => createGPACalcCourse(location, course));
 
             container.style.display = "none";
@@ -2610,8 +3765,8 @@ function delayDashboardNotesStorage(text) {
 
 function loadDashboardNotes() {
     if (options.dashboard_notes === true) {
-        let notes = document.querySelector('.bettercanvas-dashboard-notes') || document.createElement("textarea");
-        notes.classList.add("bettercanvas-dashboard-notes");
+        let notes = document.querySelector('.canvasrefined-dashboard-notes') || document.createElement("textarea");
+        notes.classList.add("canvasrefined-dashboard-notes");
         notes.value = options.dashboard_notes_text;
         notes.placeholder = "Enter notes here";
         notes.style.display = "block";
@@ -2623,7 +3778,7 @@ function loadDashboardNotes() {
             this.style.height = this.scrollHeight + 5 + "px";
         });
     } else {
-        let notes = document.querySelector('.bettercanvas-dashboard-notes');
+        let notes = document.querySelector('.canvasrefined-dashboard-notes');
         if (notes) notes.style.display = "none";
     }
 }
@@ -2673,8 +3828,8 @@ Smaller features
 */
 
 function applyAestheticChanges() {
-    let style = document.querySelector("#bettercanvas-aesthetics") || document.createElement('style');
-    style.id = "bettercanvas-aesthetics";
+    let style = document.querySelector("#canvasrefined-aesthetics") || document.createElement('style');
+    style.id = "canvasrefined-aesthetics";
     style.textContent = "";
     if (options.condensed_cards === true) style.textContent += ".ic-DashboardCard__header_hero {height:60px!important}.ic-DashboardCard__header-subtitle, .ic-DashboardCard__header-term{display:none}";
     if (options.remlogo === true) style.textContent += ".ic-app-header__logomark-container{display:none}";
@@ -2734,7 +3889,7 @@ function showUpdateMsg() {
     if (!el) return;
 
     // option off or div already created
-    let div = document.getElementById("bettercanvas-update-msg");
+    let div = document.getElementById("canvasrefined-update-msg");
     if (options.show_updates !== true || options.update_msg === "") {
         if (div) div.style.display = "none";
         return;
@@ -2744,9 +3899,9 @@ function showUpdateMsg() {
     }
 
     // first creation
-    div = makeElement("div", el, { "id": "bettercanvas-update-msg" });
+    div = makeElement("div", el, { "id": "canvasrefined-update-msg" });
     makeElement("p", div, { "textContent": options.update_msg });
-    const close = makeElement("button", div, { "id": "bettercanvas-update-close", "textContent": "Close" });
+    const close = makeElement("button", div, { "id": "canvasrefined-update-close", "textContent": "Close" });
     close.addEventListener("click", () => {
         readUpdate();
         div.remove();
@@ -2801,15 +3956,15 @@ function setupCustomURL() {
         if (res.length) {
             getCards(res).then(() => {
                 setTimeout(() => {
-                    console.log("Better Canvas - setting custom domain to " + domain);
+                    console.log("Canvas Refined - setting custom domain to " + domain);
                     chrome.storage.sync.set({ custom_domain: [domain] }).then(location.reload());
                 }, 100);
             });
         } else {
-            console.log("Better Canvas - this url doesn't seem to be a canvas url (1)");
+            console.log("Canvas Refined - this url doesn't seem to be a canvas url (1)");
         }
     }).catch(err => {
-        console.log("Better Canvas - this url doesn't seem to be a canvas url (2)");
+        console.log("Canvas Refined - this url doesn't seem to be a canvas url (2)");
     });
 }
 
@@ -2820,14 +3975,14 @@ function getGrades() {
 }
 
 function getColors() {
-    if (options.tab_icons) {
-        let colors = getData(`${domain}/api/v1/users/self/colors`);
-        colors.then(data => {
+    if (options.tab_icons || options.better_todo || options.better_sidebar) {
+        return getData(`${domain}/api/v1/users/self/colors`).then(data => {
             let cards = options.custom_cards_3;
             Object.keys(cards).forEach(key => {
                 cards[key] = { ...cards[key], "color": data["custom_colors"]["course_" + key] ? data["custom_colors"]["course_" + key] : null };
             });
             chrome.storage.sync.set({ "custom_cards_3": cards });
+            return cards;
         });
     }
 }
@@ -2851,7 +4006,7 @@ function getAssignments() {
 }
 
 function getApiData() {
-    if (current_page === "/" || current_page === "") {
+    if (current_page === "/" || current_page === "" || options.better_todo || options.better_sidebar) {
         getAssignments();
         getGrades();
         getColors();

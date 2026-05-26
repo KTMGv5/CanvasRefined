@@ -9,7 +9,7 @@ const DARKMODE_CSS = `
 #calendar-drag-and-drop-container .fc-month-view .fc-body,
 #content-wrapper .user_content.not_design_tools h3,
 #context-list-holder,
-.bettercanvas-course-credit,
+.canvasrefined-course-credit,
 #kl_banner,
 #kl_banner_left,
 #kl_banner_right,
@@ -42,7 +42,7 @@ const DARKMODE_CSS = `
 .ac-result-container,
 .agenda-wrapper,
 .al-options,
-.bettercanvas-assignment-container,
+.canvasrefined-assignment-container,
 .bjXfh_daKB,
 .bjXfh_daKB span,
 .bottom-reply-with-box,
@@ -127,7 +127,7 @@ body,
 code,
 img.kl_image_round_white_border,
 img.kl_image_white_border,
-.bettercanvas-course-percent,
+.canvasrefined-course-percent,
 pre,
 table.summary tbody th,
 table.summary td,
@@ -159,8 +159,8 @@ table.seas-homepage-table,
 .ic-app-course-menu.with-left-side #left-side.XOwIb_eLeB:not([aria-selected]):not([aria-disabled]):hover,
 .XOwIb_eLeB[aria-selected],
 span.fOyUs_bGBk.fOyUs_desw.bDzpk_bGBk.bDzpk_busO.bDzpk_cQFX.bDzpk_bZNM,
-.bettercanvas-todo-complete-btn,
-.bettercanvas-card-grade,
+.canvasrefined-todo-complete-btn,
+.canvasrefined-card-grade,
 div[style*='background-color: #fff'],
 div[style*='background: #fff'],
 div[style*='background-color: #ffffff'],
@@ -173,8 +173,9 @@ span[style*='background: #fff'],
 .css-1fwux0x-view--block,
 .css-1v8v5q1-optionItem,
 #comments-tray,
+.css-d76rpr-view--inlineBlock[data-testid='tool-bar'],
 .css-vxe90h-view--inlineBlock,
-.bettercanvas-todo-actions,
+.canvasrefined-todo-actions,
 .css-sg1rn7-view {
     background:var(--bcbackground-0)!important
 }
@@ -190,7 +191,7 @@ span[style*='background: #fff'],
 
 #submit_file_button,
 span[style*='background-color: #fbeeb8'],
-.bettercanvas-todo-label {
+.canvasrefined-todo-label {
     color:var(--bcbackground-0)!important
 }
 
@@ -211,7 +212,7 @@ span[style*='background-color: #fbeeb8'],
 .Button,
 .ac-input-box,
 .agenda-day.agenda-today,
-.bettercanvas-assignment-container:hover,
+.canvasrefined-assignment-container:hover,
 .btn,
 .discussion-reply-box,
 .discussions-v2__wrapper>span>span>span>span>button>span,
@@ -274,11 +275,11 @@ table.seas-homepage-table tr:nth-child(odd),
 .list-view a.active,
 #calendars-context-list .context_list_context:hover,
 #other-calendars-context-list .context_list_context:hover,
-.bettercanvas-todo-complete-btn:hover,
-.bettercanvas-custom-btn,
-.bettercanvas-skeleton-text,
-.bettercanvas-hover-preview,
-.bettercanvas-gpa-edit-btn,
+.canvasrefined-todo-complete-btn:hover,
+.canvasrefined-custom-btn,
+.canvasrefined-skeleton-text,
+.canvasrefined-hover-preview,
+.canvasrefined-gpa-edit-btn,
 div[style*='background-color: rgb(229, 242, 248)'],
 div[style*='background-color: rgb(245, 245, 245)'],
 .css-7naoe-textInp,
@@ -287,7 +288,7 @@ div[style*='background-color: rgb(245, 245, 245)'],
 #course_select_menu,
 .css-1dn3ise-textInput__facade,
 .css-1veueey-textInput__facade,
-.bettercanvas-todo-action:hover {
+.canvasrefined-todo-action:hover {
     background:var(--bcbackground-1)!important
 }
 
@@ -295,7 +296,7 @@ div[style*='background-color: rgb(245, 245, 245)'],
     fill:var(--bcbackground-1)!important
 }
 
-.bettercanvas-hover-preview::after {
+.canvasrefined-hover-preview::after {
     background:linear-gradient(0deg,  var(--bcbackground-1) 50%,  transparent)
 }
 
@@ -375,7 +376,7 @@ ul.outcome-level li:hover {
 
 #calendar-drag-and-drop-container .fc-row .fc-content-skeleton td,
 #calendar-drag-and-drop-container .fc-row .fc-helper-skeleton td,
-.bettercanvas-course-credit,
+.canvasrefined-course-credit,
 #kl_content_block_0,
 #kl_custom_block_0,
 #kl_custom_block_1,
@@ -430,7 +431,7 @@ ul.outcome-level li:hover {
 .uneditable-input,
 .unpinned-discussions-v2__wrapper,
 form.question_form .form_answers .answer,
-.bettercanvas-course-percent,
+.canvasrefined-course-percent,
 input[type=color],
 input[type=date],
 input[type=datetime-local],
@@ -458,11 +459,11 @@ textarea,
 .ui-state-default,
 .ui-widget-header .ui-state-default,
 .ui-widget-content,
-.bettercanvas-custom-btn,
-.bettercanvas-gpa-edit-btn,
+.canvasrefined-custom-btn,
+.canvasrefined-gpa-edit-btn,
 .css-26xxi8-view--block,
 .css-9fqfm7-view--block,
-.bettercanvas-todo-actions {
+.canvasrefined-todo-actions {
     border:1px solid var(--bcborders)!important
 }
 
@@ -482,7 +483,7 @@ table.seas-homepage-table,
 }
 
 #assignment_show .student-assignment-overview,
-#grades_summary th.title,
+#grades_summary,
 #kl_wrapper_3.kl_colored_headings h4,
 #kl_wrapper_3.kl_colored_headings_box_left h4,
 #minical .fc-toolbar,
@@ -540,7 +541,7 @@ table.summary thead th,
 .submission-details-header__heading-and-grades,
 #right_side .content_box,
 .assignment-student-header,
-.bettercanvas-gpa-course {
+.canvasrefined-gpa-course {
     border-bottom:1px solid var(--bcborders)!important
 }
 
@@ -572,6 +573,11 @@ table.summary thead th,
 #inbox-conversation-holder *,
 .css-1vqfmz1-view {
     border-color:var(--bcborders)!important
+}
+
+tr.student_assignment.assignment_graded.editable {
+    border-top:1px solid var(--bctext-1)!important;
+    border-bottom:1px solid var(--bctext-1)!important
 }
 
 .discussion-section.message_wrapper table {
@@ -695,8 +701,8 @@ ul.outcome-level {
 #kl_wrapper_3.kl_colored_headings_box_left>div>h3 i,
 #kl_wrapper_3.kl_colored_headings_box_left>div>h3:not(.ui-state-default),
 #kl_wrapper_3.kl_emta h3:not(.ui-state-default),
-.bettercanvas-card-grade,
-.bettercanvas-card-header,
+.canvasrefined-card-grade,
+.canvasrefined-card-header,
 .discussion-fyi,
 .ic-DashboardCard__action-badge,
 .ic-app-header__menu-list-item.ic-app-header__menu-list-item--active .menu-item__text,
@@ -705,13 +711,13 @@ ul.outcome-level {
 .menu-item__badge,
 .mini_calendar .day.other_month,
 .ui-tabs .ui-tabs-nav li.ui-tabs-active a,
-.bettercanvas-course-percent,
-.bettercanvas-todo-container,
-.bettercanvas-todo-container:hover,
+.canvasrefined-course-percent,
+.canvasrefined-todo-container,
+.canvasrefined-todo-container:hover,
 .MlJlv_ebWM,
-.bettercanvas-todo-item,
-.bettercanvas-todo-item:hover,
-.bettercanvas-hover-preview,
+.canvasrefined-todo-item,
+.canvasrefined-todo-item:hover,
+.canvasrefined-hover-preview,
 .baylorMainContainer,
 .baylor-table td,
 .fOyUs_dUgE,
@@ -736,13 +742,13 @@ h5,
 h6,
 #tinymce,
 .PlannerItem-styles__type > span,
-.bettercanvas-todo-actions {
+.canvasrefined-todo-actions {
     color:var(--bctext-0)!important
 }
 
 .ic-app-header__menu-list-item.ic-app-header__menu-list-item--active svg,
 .ToDoSidebarItem__Icon,
-.bettercanvas-todo-svg {
+.canvasrefined-todo-svg {
     fill:var(--bctext-0)!important
 }
 
@@ -758,7 +764,7 @@ h6,
 #calendar-drag-and-drop-container .fc-agendaWeek-view .fc-widget-header,
 #calendar-drag-and-drop-container .fc-month-view .fc-widget-header,
 #content-wrapper .user_content.not_design_tools h3,
-.bettercanvas-course-credit,
+.canvasrefined-course-credit,
 #kl_banner,
 #kl_banner h2,
 #kl_banner_left,
@@ -792,8 +798,8 @@ h6,
 .ToDoSidebarItem__Info li,
 .ac-input-box,
 .accessible-toggler,
-.bettercanvas-assignment-container,
-.bettercanvas-assignment-container:hover,
+.canvasrefined-assignment-container,
+.canvasrefined-assignment-container:hover,
 .bjXfh_daKB,
 .bjXfh_daKB span,
 .cWmNi_bGBk,
@@ -913,13 +919,13 @@ ic-tokeninput-input,
 .dUOHu_eCSh,
 .blnAQ_eCSh,
 #gradebook_header,
-.bettercanvas-assignment-link,
-.bettercanvas-assignment-link:hover,
+.canvasrefined-assignment-link,
+.canvasrefined-assignment-link:hover,
 .jumbotron,
 .card,
 .ac-token,
 span[style='color: #000000;'],
-.bettercanvas-gpa-edit-btn {
+.canvasrefined-gpa-edit-btn {
     color:var(--bctext-1)!important
 }
 
@@ -999,7 +1005,7 @@ ul.outcome-level li.selected a::before,
 .ic-unread-badge,
 .cECYn_bXiG,
 .unread-grade,
-.bettercanvas-todo-label {
+.canvasrefined-todo-label {
     background:var(--bclinks)!important
 }
 
@@ -1091,7 +1097,7 @@ input[type=color].ic-Input:focus,
 .extension-aldue:hover,
 .ic-DashboardCard,
 .navigation-tray-container,
-.bettercanvas-gpa-card {
+.canvasrefined-gpa-card {
     box-shadow:0 2px 5px #00000080!important
 }
 
@@ -1174,7 +1180,7 @@ hr {
 
 .ic-DashboardCard,
 .ic-DashboardCard__header_content,
-.bettercanvas-assignment-container,
+.canvasrefined-assignment-container,
 .recent_feedback .event-details {
     background:none!important
 }

@@ -2,7 +2,7 @@
 <html lang="en" style="/*background:linear-gradient(115deg, rgb(255, 53, 88), rgb(255, 131, 73), rgb(255, 103, 187))*/">
 
 <head>
-    <title>Actually Better Canvas</title>
+    <title>Canvas Refined</title>
     <link href="../css/popup.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +23,7 @@
     <div class="main">
         <div class="header">
             <img id="bclogo" src="../icon/icon-128.png">
-            <h1 data-i18n="actually_better_canvas">Actually Better Canvas</h1>
+            <h1 data-i18n="Canvas_Refined">Canvas Refined</h1>
         </div>
             <div class="more-options-container">
                 <button id="customize-dark-btn" class="big-button tab-btn">
@@ -228,6 +228,14 @@
                             <input type="checkbox" id="todo_hide_feedback" name="todo_hide_feedback">
                             <label for="todo_hide_feedback" class="sub-text" data-i18n="todo_hide_feedback">Hide Recent Feedback</label>
                         </div>
+                        <div class="sub-option">
+                            <input type="checkbox" id="todo_progress_rings" name="todo_progress_rings">
+                            <label for="todo_progress_rings" class="sub-text">Show progress rings</label>
+                        </div>
+                        <div class="sub-option">
+                            <input type="checkbox" id="todo_confetti" name="todo_confetti">
+                            <label for="todo_confetti" class="sub-text">Show confetti on complete</label>
+                        </div>
                         <div style="margin-top: 5px">
                             <span class="sub-text" data-i18n="max_items">Max items to show: </span><span
                                 id="numTodoItems"></span>
@@ -246,31 +254,9 @@
                         <span class="option-name" data-i18n="better_sidebar">Better Sidebar</span>
                     </div>
                     <div class="sub-options">
-                        <div class="sub-option" style="display:none;">
-                            <input type="checkbox" id="hover_preview" name="hover_preview">
-                            <label for="hover_preview" class="sub-text" data-i18n="hover_preview">Hover to preview
-                                details</label>
-                        </div>
-                        <div class="sub-option">
-                            <input type="checkbox" id="todo_separate_scrollbar" name="todo_separate_scrollbar">
-                            <label for="todo_separate_scrollbar" class="sub-text" data-i18n="todo_separate_scrollbar">Separate Scrollbar</label>
-                        </div>
-                        <div class="sub-option">
-                            <input type="checkbox" id="todo_hr24" name="todo_hr24">
-                            <label for="todo_hr24" class="sub-text" data-i18n="24hrformat">Use 24hr format</label>
-                        </div>
-                        <div class="sub-option">
-                            <input type="checkbox" id="todo_full_height" name="todo_full_height">
-                            <label for="todo_full_height" class="sub-text" data-i18n="todo_full_height">Force Full Height</label> <!-- TO REMOVE and replace with full height -->
-                        </div>
-                        <div class="sub-option">
-                            <input type="checkbox" id="todo_hide_feedback" name="todo_hide_feedback">
-                            <label for="todo_hide_feedback" class="sub-text" data-i18n="todo_hide_feedback">Hide Recent Feedback</label>
-                        </div>
                         <div style="margin-top: 5px">
-                            <span class="sub-text" data-i18n="max_items">Max items to show: </span><span
-                                id="numTodoItems"></span>
-                            <input type="range" min="1" max="12" id="numTodoItemsSlider">
+                            <span class="sub-text">Sidebar scale: </span><span id="sidebarScaleValue"></span><span class="sub-text">%</span>
+                            <input type="range" min="70" max="150" id="sidebarScaleSlider">
                         </div>
                     </div>
                 </div>

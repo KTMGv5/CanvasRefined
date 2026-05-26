@@ -2,6 +2,7 @@ const syncedSwitches = ['remind', 'tab_icons', 'hide_feedback', 'dark_mode', 're
 const syncedSubOptions = [
 	"todo_hide_feedback",
 	"todo_full_height",
+    "todo_confetti",
 	"device_dark",
 	"relative_dues",
 	"card_overdues",
@@ -27,11 +28,13 @@ const syncedSubOptions = [
 	"cardWidth",
 	"cardHeight",
 	"customBackgroundLink",
+    "sidebar_scale",
 ];
 const localSwitches = [];
+const fontsDropdownStateKey = "fonts_dropdown_open";
 
 //const apiurl = "http://localhost:3000";
-const apiurl = "https://bettercanvas.diditupe.dev";
+const apiurl = "https://canvasrefined.diditupe.dev";
 
 const defaultOptions = {
     "local": {
@@ -69,7 +72,8 @@ const defaultOptions = {
         "dashboard_notes": false,
         "dashboard_notes_text": "",
         "better_todo": false,
-        "better_sidebar": true,
+        "better_sidebar": false,
+        "sidebar_scale": 100,
         "todo_hr24": false,
 		"todo_separate_scrollbar": false,
         "condensed_cards": false,
@@ -109,6 +113,8 @@ const defaultOptions = {
         "tab_icons": false,
         "todo_hide_feedback": false,
 		"todo_full_height": false,
+        "todo_progress_rings": true,
+		"todo_confetti": true,
         "device_dark": false,
         "cumulative_gpa": { "name": "Cumulative GPA", "hidden": false, "weight": "dnc", "credits": 999, "gr": 3.21 },
         // "show_updates": false,
@@ -189,6 +195,17 @@ function setupTodoSlider(initial) {
     document.querySelector('#numTodoItemsSlider').addEventListener('input', function () {
         document.querySelector('#numTodoItems').textContent = this.value;
         chrome.storage.sync.set({ "num_todo_items": this.value });
+    });
+}
+
+function setupSidebarScaleSlider(initial) {
+    let el = document.querySelector("#sidebarScaleSlider");
+    if (!el) return;
+    el.value = initial;
+    document.querySelector("#sidebarScaleValue").textContent = initial;
+    el.addEventListener("input", function () {
+        document.querySelector("#sidebarScaleValue").textContent = this.value;
+        chrome.storage.sync.set({ "sidebar_scale": parseInt(this.value) });
     });
 }
 
@@ -288,7 +305,9 @@ function setup() {
 			"gpa_calc_weighted",
 			"gpa_calc_cumulative",
 			// /*'card_method_date',*/ "show_updates",
-			"todo_hide_feedback",
+            "todo_hide_feedback",
+            "todo_progress_rings",
+            "todo_confetti",
 			"todo_full_height",
 			"device_dark",
 			"relative_dues",
@@ -352,6 +371,10 @@ function setup() {
 				identifier: "num_todo_items",
 				setup: (initial) => setupTodoSlider(initial),
 			},
+            {
+                identifier: "sidebar_scale",
+                setup: (initial) => setupSidebarScaleSlider(initial),
+            },
 			{
 				identifier: "card_limit",
 				setup: (initial) => setupCardLimitSlider(initial),
@@ -489,7 +512,7 @@ function setup() {
     // activate dark mode fixer button
     document.querySelector("#fix-dm-btn").addEventListener("click", async function () {
         let output = await sendFromPopup("fixdm");
-        if (output.path === "bettercanvas-none" || output.path === "bettercanvas-darkmode_off") return;
+        if (output.path === "canvasrefined-none" || output.path === "canvasrefined-darkmode_off") return;
         let rating = "bad";
         if (output.time < 100) {
             rating = "good";
@@ -839,20 +862,29 @@ function setup() {
 		sendFromPopup("updateBackground");
     });
 
-    document.getElementById("fontsDropdown").addEventListener("click", (e) => {
+    const applyFontsDropdownState = (isOpen) => {
         const el = document.getElementById("quick-fonts");
         const el2 = document.getElementsByClassName("custom-font")[0];
         const arrow = document.getElementById("fontsDropdownArrow");
-        if (el.style.display === "none") {
-            el.style.display = "flex";
-            el2.style.display = "block";
-            arrow.style.transform = "rotate(180deg)";
+        if (!el || !el2 || !arrow) return;
+        el.style.display = isOpen ? "flex" : "none";
+        el2.style.display = isOpen ? "block" : "none";
+        arrow.style.transform = isOpen ? "rotate(180deg)" : "rotate(0deg)";
+    };
 
-        } else {
-            el.style.display = "none";
-            el2.style.display = "none";
-            arrow.style.transform = "rotate(0deg)";
-        }
+    chrome.storage.local.get([fontsDropdownStateKey], (storage) => {
+        const isOpen = storage[fontsDropdownStateKey] !== false;
+        applyFontsDropdownState(isOpen);
+    });
+
+    document.getElementById("fontsDropdown").addEventListener("click", () => {
+        const el = document.getElementById("quick-fonts");
+        const el2 = document.getElementsByClassName("custom-font")[0];
+        if (!el || !el2) return;
+        const isCurrentlyOpen = getComputedStyle(el).display !== "none" && getComputedStyle(el2).display !== "none";
+        const nextOpen = !isCurrentlyOpen;
+        applyFontsDropdownState(nextOpen);
+        chrome.storage.local.set({ [fontsDropdownStateKey]: nextOpen });
     });
 
 }
@@ -1061,7 +1093,16 @@ async function submitTheme() { //TODO: remake
     //     return;
     // }
 
-    const theme = await getExport(sync, ["custom_cards", "card_colors", "dark_preset", "custom_font", "gradient_cards", "disable_color_overlay"]);
+    const theme = await getExport(sync, [
+        ...syncedSwitches,
+        ...syncedSubOptions,
+        "custom_cards",
+        "card_colors",
+        "dark_preset",
+        "custom_font",
+        "gradient_cards",
+        "disable_color_overlay",
+    ]);
     const title = document.getElementById("submit-title");
     const credits = document.getElementById("submit-credits");
 
@@ -1150,6 +1191,15 @@ function saveCurrentTheme() {
                 "custom_cards": current["custom_cards"],
                 "card_colors": current["card_colors"] === null ? [current["dark_preset"]["links"]] : current["card_colors"],
                 "custom_font": current["custom_font"],
+                "better_todo": current["better_todo"],
+                "todo_hide_feedback": current["todo_hide_feedback"],
+                "todo_full_height": current["todo_full_height"],
+                "todo_hr24": current["todo_hr24"],
+                "todo_separate_scrollbar": current["todo_separate_scrollbar"],
+                "num_todo_items": current["num_todo_items"],
+                "hover_preview": current["hover_preview"],
+                "better_sidebar": current["better_sidebar"],
+                "sidebar_scale": current["sidebar_scale"],
 				"imageSize": current["imageSize"],
 				"cardRoundness": current["cardRoundness"],
 				"cardSpacing": current["cardSpacing"],
@@ -1314,7 +1364,7 @@ async function displayThemeListNew(direction) { // TODO: remake
             console.log(e);
             current_page_num = 1;
             fallback = true;
-            displayAlert(true, "There was a problem getting themes from the Better Canvas server, so the old themes browser is being displayed for now.");
+            displayAlert(true, "there is no server you should not be seeing this. There was a problem getting themes from the Canvas Refined server, so the old themes browser is being displayed for now.");
             displayThemeListOld(0);
             return;
         }

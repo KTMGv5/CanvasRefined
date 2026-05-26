@@ -4,7 +4,7 @@
 
 ## Overview
 
-Actually Better Canvas ("the Extension") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and protect your information.
+Canvas Refined ("the Extension") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and protect your information.
 
 TLDR: we store some of your canvas info locally on your device and it stays fully local
 
@@ -88,7 +88,7 @@ We may update this Privacy Policy to reflect changes in our practices. We will n
 
 For privacy concerns or questions about this Extension, please contact:
 - **Email:** sandlerguy5@gmail.com
-- **GitHub Issues:** [GuySandler/ActuallyBetterCanvas](https://github.com/GuySandler/ActuallyBetterCanvas)
+- **GitHub Issues:** [GuySandler/Actuallycanvasrefined](https://github.com/GuySandler/Actuallycanvasrefined)
 
 ## Compliance
 
@@ -99,4 +99,4 @@ This Extension operates in compliance with:
 
 ---
 
-By using Actually Better Canvas, you accept the terms of this Privacy Policy.
+By using Canvas Refined, you accept the terms of this Privacy Policy.

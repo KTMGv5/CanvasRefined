@@ -23,7 +23,7 @@ chrome.runtime.onInstalled.addListener(function () {
             },
             "new_install": true,
             "assignments_due": true,
-            "gpa_calc": false,
+            "gpa_calc": true,
             "dark_mode": true,
             "gradent_cards": false,
             "disable_color_overlay": false,
@@ -33,14 +33,14 @@ chrome.runtime.onInstalled.addListener(function () {
             "num_assignments": 4,
             "custom_domain": [""],
             "assignments_done": [],
-            "dashboard_grades": false,
+            "dashboard_grades": true,
             "assignment_date_format": false,
             "dashboard_notes": false,
             "dashboard_notes_text": "",
             "better_todo": false,
             "todo_hr24": false,
 			"todo_separate_scrollbar": false,
-            "better_sidebar": true,
+            "better_sidebar": false,
             "condensed_cards": false,
             "custom_cards": {},
             "custom_cards_2": {},
@@ -77,7 +77,7 @@ chrome.runtime.onInstalled.addListener(function () {
             "assignment_states": {},
             "tab_icons": false,
             "todo_hide_feedback": false,
-			"todo_full_height": false,
+            "todo_full_height": true,
             "device_dark": false,
             "cumulative_gpa": { "name": "Cumulative GPA", "hidden": false, "weight": "dnc", "credits": 999, "gr": 3.21 },
             // "show_updates": false,
@@ -106,7 +106,7 @@ chrome.runtime.onInstalled.addListener(function () {
         }
     };
 
-    const updateMsg = "Betterer Canvas was just updated!\nThis version added new themes, cumulative GPA into the GPA calculator, and a new sorting function for themes.";
+    const updateMsg = "Canvas Refined was just updated!\nThis version added new themes, cumulative GPA into the GPA calculator, and a new sorting function for themes.";
 
     chrome.storage.local.get(null, local => {
         chrome.storage.sync.get(null, async sync => {
@@ -138,4 +138,4 @@ chrome.runtime.onInstalled.addListener(function () {
     });
 });
 
-// chrome.runtime.setUninstallURL("https://diditupe.dev/bettercanvas/goodbye");
+// chrome.runtime.setUninstallURL("https://diditupe.dev/canvasrefined/goodbye");

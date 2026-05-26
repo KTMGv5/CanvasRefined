@@ -1,17 +1,12 @@
-![Better Canvas](/icon/NEWtitle.png)
+![Canvas Refined](/icon/NEWtitle.png)
 
-# Actually Better Canvas
+# Canvas Refined
 
-I don't like the direction bettercanvas (bettercampus) is heading so I forked it
+I don't like the direction canvasrefined (bettercampus) is heading so I forked it
 
 They tried to change license but forgot to rebase so this is based on the MIT licensed version and fully legal 🙃
 
 There is a dev branch for active alpha if you really want
-<!-- ### Supported on -->
-
-<!-- ![Google Chrome](https://img.shields.io/badge/Google%20Chrome-4285F4?style=for-the-badge&logo=GoogleChrome&logoColor=white) -->
-
-<!-- ![Firefox](https://img.shields.io/badge/Firefox-FF7139?style=for-the-badge&logo=Firefox-Browser&logoColor=white) -->
 
 ## Inquiries
 
@@ -29,7 +24,7 @@ To contact me, please email sandlerguy5@gmail.com, or you can open an issue with
 
 ## Features
 
-Better Canvas introduces improvements to the Canvas user interface:
+The original introduces improvements to the Canvas user interface:
 
 - Fully customizable dark mode (choose from premade options or manually edit dark mode)
 - Automatic scheduling for dark mode
@@ -50,7 +45,7 @@ Better Canvas introduces improvements to the Canvas user interface:
 
 ## Newly added features
 
-Actually Better Canvas adds more with more to come!
+Canvas Refined adds more with more to come!
 
 - GPA presets
 - backend stuff:
@@ -60,11 +55,11 @@ Actually Better Canvas adds more with more to come!
 - Custom Background (by URL, theme compatible)
 - Popup UI revamp
 - NEW Better todo list
-- better sidebar (beta)
+- better sidebar
+- simplified UI
 
 ## Planned Features (by priority)
 - widgets (music, timer)
-- better notes
 - auto rotate theme + theme history + fix theme submissions
 - mail assistent + ui revamp
 - better calender (+ calender sync)
@@ -73,8 +68,6 @@ Actually Better Canvas adds more with more to come!
 - fix darkmode fixer
 - make sidebar and todo list work on all pages that need them
 - grade history with graph
-- preview font
-- button to remove all card images
 
 ## Extra features that might be added:
 - card grade position, card outline
@@ -89,23 +82,21 @@ Actually Better Canvas adds more with more to come!
 - flashcards
 - goals
 - Scheduled Reminder Popups
+- preview font
+- button to remove all card images and undo
 
 ## Community suggestions (maybe will be done at some point)
 - when opening assignments it will show you "if you get a 0 on this your grade will be _"
 - quick modules button on cards
 - module sorting (newest, oldest) (maybe grid view)
 - grade leaderboard per class (opt in)
+- GPA preset by school name maybe
 
 ## Dev Installation
 
 To install, run, and build with this repository locally,
 
-- Clone the repository locally with
-
-```bash
-  git clone https://github.com/GuySandler/betterercanvas
-```
-
+- Clone the repository locally
 - Visit `chrome://extensions` in your browser. (replace chrome with your version of chromium)
 - Enable developer mode by toggling the switch in the upper right corner of the viewport.
 - Click the "Load upacked" button in the header.
@@ -113,20 +104,19 @@ To install, run, and build with this repository locally,
 
 ## Usage
 
-To use Better Canvas, select your browser below to install the extension from a store.
+<!-- To use Canvas Refined, select your browser below to install the extension from a store. -->
+To use Canvas Refined, clone the repo or manually download from the releases page.
 
-<!-- [Chrome](https://chrome.google.com/webstore/detail/better-canvas/cndibmoanboadcifjkjbdpjgfedanolh) -->
-
-<!-- [Firefox](https://addons.mozilla.org/addon/better-canvas/) -->
+More active beta is on the dev branch.
 
 ### How to use
 
 - Once the extension is installed, navigate to your institution's Canvas homepage.
 - To edit the available options, click on the "Extensions" button in the upper right corner of the viewport.
-- When the menu opens, click on the Better Canvas extension.
+- When the menu opens, click on the Canvas Refined extension.
   - A menu will appear with configuration options for your Canvas homepage.
 
-## Color Reference
+<!-- ## Color Reference
 
 | Color      | Hex                                                              |
 | ---------- | ---------------------------------------------------------------- |
@@ -134,7 +124,7 @@ To use Better Canvas, select your browser below to install the extension from a 
 | Text       | ![#ffffff](https://via.placeholder.com/10/ffffff?text=+) #ffffff |
 | Accent 01  | ![#ff002e](https://via.placeholder.com/10/ff002e?text=+) #ff002e |
 | Accent 02  | ![#ff5200](https://via.placeholder.com/10/ff5200?text=+) #ff5200 |
-| Accent 03  | ![#ff47ad](https://via.placeholder.com/10/ff47ad?text=+) #ff47ad |
+| Accent 03  | ![#ff47ad](https://via.placeholder.com/10/ff47ad?text=+) #ff47ad | -->
 
 ## Contributing
 
@@ -231,7 +221,7 @@ To add a new feature, please follow these guidelines.
 
 You can fork, modify, and use this code however you like with attributes.
 
-![Better Canvas](/icon/icon-48.png)
+![Canvas Refined](/icon/icon-48.png)
 
 Copyright (c) 2024 ksucpea
 
