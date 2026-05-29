@@ -198,6 +198,16 @@ To add a new feature, please follow these guidelines.
   - If the function only adds css, it should be added to `applyAestheticChanges()`, and in this case should not be a separate function, instead add the css to the existing styles found in this function.
   - Anything else should be put under `startExtension()` and should be placed no higher than the `checkDashboardReady` function found here.
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=GuySandler%2FCanvasRefined&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=GuySandler/CanvasRefined&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=GuySandler/CanvasRefined&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=GuySandler/CanvasRefined&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ## Authors
 
 #### Fork Owner
