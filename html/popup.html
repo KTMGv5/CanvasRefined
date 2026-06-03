@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" style="/*background:linear-gradient(115deg, rgb(255, 53, 88), rgb(255, 131, 73), rgb(255, 103, 187))*/">
+<html lang="en">
 
 <head>
     <title>Canvas Refined</title>
@@ -301,7 +301,7 @@
                             <div class="sliderknob"></div>
                             <div class="sliderbg"></div>
                         </div>
-                        <span class="option-name" data-i18n="full_width">Dashboard full width</span>
+                        <span class="option-name" data-i18n="full_width">Full Width Fix</span>
                     </div>
                     <div class="option" id="remlogo">
                         <input type="radio" id="off" name="remlogo">
@@ -372,7 +372,7 @@
             <h2 style="margin-top: 0" data-i18n="themes">Themes</h2>
             <button class="big-button back-btn" data-i18n="back">Back</button>
         </div>
-        <div class="option-container">
+        <div class="option-container" style="display:none;">
             <div class="theme-header small-option">
                 <h3 class="header-small" style="margin:0">Submit your theme</h3>
                 <div class="big-button" id="show-submit-form">Show</div>
@@ -940,7 +940,15 @@
         </div>
         <div class="custom-font option-container">
             <h3 class="header-small">Custom Background</h3>
-            <p>Use an image url or upload an image file</p>
+            <p>Pick a preset or use your own image url.</p>
+            <div class="background-preset-grid" id="background-presets"></div>
+            <div class="background-scale-row">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;">
+                    <span class="sub-text" style="font-weight:600; color:#e2e2e2;">Image scale</span>
+                    <span class="sub-text" id="customBackgroundScaleValue">100%</span>
+                </div>
+                <input type="range" min="50" max="200" step="1" id="customBackgroundScale">
+            </div>
             <input style="width:85%;" class="card-input" id="customBackgroundLink" placeholder="https://...">
             <button id="clearCustomBackground" class="big-button" style="margin-top: 8px;">Clear Background</button>
         </div>
@@ -1019,6 +1027,7 @@
     </div>
 
     <script type="text/javascript" src="../js/themes.js"></script>
+    <script type="text/javascript" src="../js/backgrounds.js"></script>
     <script type="text/javascript" src="../js/popup.js"></script>
 
 </body>

@@ -8,6 +8,7 @@ function getCurrentCourseId() {
 
 function getSidebarLayoutMode() {
     if (current_page.match(/^\/courses\/(\d+)(?:\/|$)/)) return "course";
+    if (isProfilePage()) return "course";
     if (current_page === "/courses" || current_page === "/courses/") return "dash";
     if (current_page === "/" || current_page === "") return "dash";
     return "dash";
@@ -29,6 +30,10 @@ function isConversationsPage() {
     return /^\/conversations(?:\/|$)/.test(current_page);
 }
 
+function isProfilePage() {
+    return /^\/profile(?:\/|$)/.test(current_page);
+}
+
 function getSubmissionAssignmentLink() {
     const match = current_page.match(/^\/courses\/(\d+)\/assignments\/(\d+)\/submissions\/(\d+)(?:\/|$)/);
     if (!match) return null;
@@ -36,6 +41,7 @@ function getSubmissionAssignmentLink() {
 }
 
 let submissionPageButtonObserver = null;
+let profileLogoutButtonObserver = null;
 
 function addSubmissionPageButton() {
     const assignmentLink = getSubmissionAssignmentLink();
@@ -118,6 +124,50 @@ function watchSubmissionPageButton() {
     }, 10000);
 }
 
+function addProfileLogoutPageButton() {
+    if (!isProfilePage()) return;
+    const content = document.getElementById("content");
+    if (!content || content.querySelector("#canvasrefined-profile-logout")) return;
+
+    makeElement("a", content, {
+        id: "canvasrefined-profile-logout",
+        className: "canvasrefined-custom-btn",
+        href: `${domain}/logout`,
+        textContent: "Logout",
+        style: "display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;margin:0 0 12px 0;padding:10px 14px;text-decoration:none;font-weight:700;",
+    }, true);
+}
+
+function ensureProfileLogoutPageButton() {
+    if (!isProfilePage()) return false;
+    const content = document.getElementById("content");
+    if (!content) return false;
+    if (content.querySelector("#canvasrefined-profile-logout")) return true;
+    addProfileLogoutPageButton();
+    return Boolean(content.querySelector("#canvasrefined-profile-logout"));
+}
+
+function watchProfileLogoutPageButton() {
+    if (!isProfilePage()) return;
+    if (ensureProfileLogoutPageButton()) return;
+    if (profileLogoutButtonObserver) return;
+
+    profileLogoutButtonObserver = new MutationObserver(() => {
+        if (ensureProfileLogoutPageButton() && profileLogoutButtonObserver) {
+            profileLogoutButtonObserver.disconnect();
+            profileLogoutButtonObserver = null;
+        }
+    });
+
+    profileLogoutButtonObserver.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => {
+        if (profileLogoutButtonObserver) {
+            profileLogoutButtonObserver.disconnect();
+            profileLogoutButtonObserver = null;
+        }
+    }, 10000);
+}
+
 function getSidebarStateMode(mode = getSidebarLayoutMode()) {
     return mode === "course" ? "course" : "dashboard";
 }
@@ -127,10 +177,7 @@ function getSidebarStateKey(mode = getSidebarLayoutMode()) {
 }
 
 async function getSidebarExpandedState(mode = getSidebarLayoutMode()) {
-    const key = getSidebarStateKey(mode);
-    const storage = await chrome.storage.local.get(key);
-    if (typeof storage[key] === "boolean") return storage[key];
-    return mode === "course";
+    return false;
 }
 
 function setSidebarExpandedState(mode, expanded) {
@@ -410,6 +457,7 @@ function startExtension() {
         ensureBetterSidebar();
         watchSequenceFooter();
         watchSubmissionPageButton();
+        watchProfileLogoutPageButton();
 
         //getClassAverages();
         
@@ -516,6 +564,9 @@ function applyOptionsChanges(changes) {
 			case "custom_styles":
 				applyAestheticChanges();
 				break;
+            case "customBackgroundScale":
+                applyCustomBackground();
+                break;
 			// case "show_updates":
 			// 	showUpdateMsg();
 			// 	break;
@@ -607,13 +658,23 @@ function resetBetterSidebarLayout() {
     document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("backdrop-filter");
     document.querySelector(".ic-Layout-contentMain")?.style.removeProperty("-webkit-backdrop-filter");
     document.getElementById("left-side")?.style.removeProperty("display");
+    document.getElementById("left-side")?.style.removeProperty("padding-top");
+    document.getElementById("left-side")?.style.removeProperty("padding-left");
+    document.getElementById("section-tabs")?.style.removeProperty("padding-top");
     document.getElementById("better-sidebar-container")?.remove();
     clearBetterSidebarLayoutFix();
 }
 
 function ensureBetterSidebar() {
     if (!options.better_sidebar) return;
-    if (document.querySelector("#better-sidebar-container")) return;
+    const existingSidebar = document.querySelector("#better-sidebar-container");
+    if (existingSidebar) {
+        const expander = existingSidebar.querySelector(".better-sidebar-expander");
+        existingSidebar.dataset.expanded = "false";
+        setSidebarExpandedState(getSidebarLayoutMode(), false);
+        updateSidebar(false, existingSidebar, expander);
+        return;
+    }
     if (!document.querySelector("#wrapper") || !document.querySelector(".ic-Layout-contentWrapper")) return;
     setupBetterSidebar(getSidebarLayoutMode());
 }
@@ -624,10 +685,13 @@ function applyCustomBackground() {
     style.id = "canvasrefined-background";
     
     if (options.customBackgroundLink && options.customBackgroundLink !== "") {
+        const backgroundScale = Number(options.customBackgroundScale) || 100;
         style.textContent = `
         #wrapper {
             background-image: url('${options.customBackgroundLink}') !important;
-            background-size: cover !important;
+            background-size: ${backgroundScale}% auto !important;
+            background-repeat: no-repeat !important;
+            background-position: center center !important;
             background-attachment: fixed !important;
         }
         .ic-Dashboard-header__layout {
@@ -2365,7 +2429,6 @@ async function setupBetterSidebar(mode = getSidebarLayoutMode()) {
         leftSide?.style.setProperty("position", "static");
         const mainWrapper = document.querySelector(".ic-Layout-contentWrapper");
         if (!mainWrapper) return;
-        const expandedPromise = getSidebarExpandedState(layoutMode);
         applyBetterSidebarLayoutFix();
         mainWrapper.style.display = "flex";
         mainWrapper.style.alignItems = "stretch";
@@ -2376,6 +2439,16 @@ async function setupBetterSidebar(mode = getSidebarLayoutMode()) {
         if (layoutMode === "course" && leftSide) {
             const notRightSide = document.getElementById("not_right_side");
             const rightSideWrapper = document.getElementById("right-side-wrapper");
+            const sectionTabs = document.getElementById("section-tabs");
+            leftSide.style.setProperty("padding-top", "0", "important");
+            leftSide.style.setProperty("padding-left", "0", "important");
+            if (sectionTabs) {
+                if (getCurrentCourseId() !== null || isProfilePage()) {
+                    sectionTabs.style.setProperty("padding-top", "40px", "important");
+                } else {
+                    sectionTabs.style.removeProperty("padding-top");
+                }
+            }
             leftSide.style.flex = "0 0 250px";
             leftSide.style.width = "250px";
             leftSide.style.maxWidth = "250px";
@@ -2439,7 +2512,7 @@ async function setupBetterSidebar(mode = getSidebarLayoutMode()) {
         updateSidebar(false, sidebarList, expander);
         requestAnimationFrame(() => populateSidebarFromNav(sidebarContent));
 
-        let expanded = await expandedPromise;
+        let expanded = false;
         sidebarList.dataset.expanded = expanded ? "true" : "false";
         updateSidebar(expanded, sidebarList, expander);
         setSidebarExpandedState(layoutMode, expanded);
@@ -3706,43 +3779,80 @@ function setupGPACalc() {
     try {
         grades?.then(result => {
 
-            if (!document.querySelector(".ic-DashboardCard__box__container")) return;
+            const dashboardContainer = document.querySelector(".ic-DashboardCard__box__container");
+            if (!dashboardContainer) return;
 
-            let container2 = document.querySelector(".canvasrefined-gpa-card") || document.createElement("div");
-            container2.className = "canvasrefined-gpa-card";
-            container2.style.display = options.gpa_calc === true ? "inline-block" : "none";
+            let container2 = document.querySelector(".canvasrefined-gpa-card");
+            let container = document.querySelector(".canvasrefined-gpa");
+            const alreadyRendered = container2?.dataset?.canvasrefinedGpaRendered === "true" && container?.dataset?.canvasrefinedGpaRendered === "true";
 
-            container2.innerHTML = `<h3 class="canvasrefined-gpa-header">GPA</h3><div><div><p id="canvasrefined-gpa-unweighted"></p><p>Current</p></div><div style="display:${options["gpa_calc_weighted"] ? "block" : "none"}"><p id="canvasrefined-gpa-weighted"></p><p>Weighted</p></div><div style="display:${options["gpa_calc_cumulative"] ? "block" : "none"}"><p id="canvasrefined-gpa-cumulative"></p><p>Cumulative</p></div></div>`;
-            let editBtn = makeElement("button", container2, { "className": "canvasrefined-gpa-edit-btn", "textContent": "Edit Calculator" });
-
-            let container = document.querySelector(".canvasrefined-gpa") || document.createElement("div");
-            container.className = "canvasrefined-gpa";
-            container.innerHTML = '<h3 class="canvasrefined-gpa-header">GPA Calculator</h3><div class="canvasrefined-gpa-courses-container"><div class="canvasrefined-gpa-courses"></div></div>';
-
-            if (options.gpa_calc_prepend === true) {
-                document.querySelector(".ic-DashboardCard__box__container").prepend(container2);
-                document.querySelector(".ic-DashboardCard__box__container").prepend(container);
-            } else {
-                document.querySelector(".ic-DashboardCard__box__container").appendChild(container2);
-                document.querySelector(".ic-DashboardCard__box__container").appendChild(container);
+            if (!container2) {
+                container2 = document.createElement("div");
+                container2.className = "canvasrefined-gpa-card";
+            }
+            if (!container) {
+                container = document.createElement("div");
+                container.className = "canvasrefined-gpa";
             }
 
-            let location = document.querySelector(".canvasrefined-gpa-courses");
-            let cumulative = createGPACalcCourse(location, { "id": "cumulative", "enrollments": [{ "has_grading_periods": true, "current_period_computed_current_score": 0 }] });
-            cumulative.id = "canvasrefined-cumulative-gpa";
-            result.forEach(course => createGPACalcCourse(location, course));
+            container2.style.display = options.gpa_calc === true ? "inline-block" : "none";
 
-            container.style.display = "none";
+            if (!alreadyRendered) {
+                container2.innerHTML = `<h3 class="canvasrefined-gpa-header">GPA</h3><div><div><p id="canvasrefined-gpa-unweighted"></p><p>Current</p></div><div style="display:${options["gpa_calc_weighted"] ? "block" : "none"}"><p id="canvasrefined-gpa-weighted"></p><p>Weighted</p></div><div style="display:${options["gpa_calc_cumulative"] ? "block" : "none"}"><p id="canvasrefined-gpa-cumulative"></p><p>Cumulative</p></div></div>`;
+                let editBtn = makeElement("button", container2, { "className": "canvasrefined-gpa-edit-btn", "textContent": "Edit Calculator" });
 
-            editBtn.addEventListener("click", () => {
-                if (container.style.display === "none") {
-                    container.style.display = "inline-block";
-                    editBtn.textContent = "Close Calculator";
+                container.innerHTML = '<h3 class="canvasrefined-gpa-header">GPA Calculator</h3><div class="canvasrefined-gpa-courses-container"><div class="canvasrefined-gpa-courses"></div></div>';
+
+                if (options.gpa_calc_prepend === true) {
+                    dashboardContainer.prepend(container2);
+                    dashboardContainer.prepend(container);
                 } else {
-                    container.style.display = "none";
-                    editBtn.textContent = "Edit Calculator";
+                    dashboardContainer.appendChild(container2);
+                    dashboardContainer.appendChild(container);
                 }
-            });
+
+                let location = document.querySelector(".canvasrefined-gpa-courses");
+                if (!location) return;
+
+                let cumulative = createGPACalcCourse(location, { "id": "cumulative", "enrollments": [{ "has_grading_periods": true, "current_period_computed_current_score": 0 }] });
+                cumulative.id = "canvasrefined-cumulative-gpa";
+                result.forEach(course => createGPACalcCourse(location, course));
+
+                container.style.display = "none";
+
+                editBtn.addEventListener("click", () => {
+                    if (container.style.display === "none") {
+                        container.style.display = "inline-block";
+                        editBtn.textContent = "Close Calculator";
+                    } else {
+                        container.style.display = "none";
+                        editBtn.textContent = "Edit Calculator";
+                    }
+                });
+
+                container2.dataset.canvasrefinedGpaRendered = "true";
+                container.dataset.canvasrefinedGpaRendered = "true";
+            } else {
+                const weighted = container2.querySelector("#canvasrefined-gpa-weighted")?.parentElement;
+                const cumulative = container2.querySelector("#canvasrefined-gpa-cumulative")?.parentElement;
+                if (weighted) weighted.style.display = options.gpa_calc_weighted ? "block" : "none";
+                if (cumulative) cumulative.style.display = options.gpa_calc_cumulative ? "block" : "none";
+
+                const shouldPrepend = options.gpa_calc_prepend === true;
+                const firstCard = shouldPrepend ? container : container2;
+                const secondCard = shouldPrepend ? container2 : container;
+
+                if (firstCard.parentElement !== dashboardContainer) {
+                    dashboardContainer.prepend(firstCard);
+                }
+                if (secondCard.parentElement !== dashboardContainer) {
+                    if (shouldPrepend) {
+                        dashboardContainer.prepend(secondCard);
+                    } else {
+                        dashboardContainer.appendChild(secondCard);
+                    }
+                }
+            }
 
             calculateGPA2();
         });
@@ -3835,7 +3945,7 @@ function applyAestheticChanges() {
     if (options.remlogo === true) style.textContent += ".ic-app-header__logomark-container{display:none}";
     if (options.disable_color_overlay === true) style.textContent += ".ic-DashboardCard__header_hero{opacity: 0!important} .ic-DashboardCard__header-button-bg{opacity: 1!important}";
     if (options.hide_feedback === true) style.textContent += ".recent_feedback {display: none}";
-    if (options.full_width === true) style.textContent += ".ic-Layout-wrapper{max-width:100%!important}";
+    if (options.full_width === true) style.textContent += "#wrapper,.ic-Layout-wrapper{max-width:100%!important}";
 
     if (options.customCardStyles === true) {
         if (options.imageSize !== undefined && options.imageSize !== 100) style.textContent += `.ic-DashboardCard__header_image {transform: scale(${options.imageSize / 100})!important; }`;

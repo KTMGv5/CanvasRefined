@@ -28,6 +28,7 @@ const syncedSubOptions = [
 	"cardWidth",
 	"cardHeight",
 	"customBackgroundLink",
+    "customBackgroundScale",
     "sidebar_scale",
 ];
 const localSwitches = [];
@@ -130,6 +131,7 @@ const defaultOptions = {
         "cardHeight": 250,
         "customCardStyles": false,
         "customBackgroundLink": "",
+        "customBackgroundScale": 100,
     }
 };
 
@@ -293,7 +295,59 @@ function setupCustomBackgroundLink(initial) {
     el.value = initial || "";
     el.addEventListener("input", (e) => {
         chrome.storage.sync.set({ "customBackgroundLink": e.target.value });
+        renderBackgroundPresetSelection();
     })
+}
+
+function setupCustomBackgroundScale(initial) {
+    const el = document.querySelector("#customBackgroundScale");
+    const output = document.querySelector("#customBackgroundScaleValue");
+    if (!el || !output) return;
+    const value = Number(initial) || 100;
+    el.value = value;
+    output.textContent = `${value}%`;
+    el.addEventListener("input", (e) => {
+        const nextValue = parseInt(e.target.value);
+        output.textContent = `${nextValue}%`;
+        chrome.storage.sync.set({ "customBackgroundScale": nextValue });
+        renderBackgroundPresetSelection();
+    });
+}
+
+function renderBackgroundPresetSelection() {
+    const currentLink = document.querySelector("#customBackgroundLink")?.value || "";
+    const currentScale = String(document.querySelector("#customBackgroundScale")?.value || "100");
+    document.querySelectorAll(".background-preset-card").forEach(button => {
+        const matchesLink = button.dataset.backgroundUrl === currentLink;
+        const matchesScale = button.dataset.backgroundScale === currentScale;
+        button.classList.toggle("selected", matchesLink && matchesScale);
+    });
+}
+
+function displayBackgroundPresets() {
+    const container = document.querySelector("#background-presets");
+    if (!container || container.dataset.rendered === "true" || typeof backgroundPresets === "undefined") return;
+    container.dataset.rendered = "true";
+    container.innerHTML = backgroundPresets.map(preset => `
+        <button type="button" class="theme-button customization-button background-preset-card" data-background-url="${preset.url}" data-background-scale="${preset.scale}" style="background-image: linear-gradient(rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.42)), url('${preset.url}');">
+            <p class="theme-button-title">${preset.title}</p>
+            <p class="theme-button-creator">${preset.credit}</p>
+            <p class="background-preset-scale">Scale ${preset.scale}%</p>
+        </button>
+    `).join("");
+
+    container.querySelectorAll(".background-preset-card").forEach(button => {
+        button.addEventListener("click", () => {
+            const backgroundUrl = button.dataset.backgroundUrl;
+            const backgroundScale = parseInt(button.dataset.backgroundScale);
+            document.querySelector("#customBackgroundLink").value = backgroundUrl;
+            document.querySelector("#customBackgroundScale").value = backgroundScale;
+            document.querySelector("#customBackgroundScaleValue").textContent = `${backgroundScale}%`;
+            chrome.storage.sync.set({ "customBackgroundLink": backgroundUrl, "customBackgroundScale": backgroundScale });
+            renderBackgroundPresetSelection();
+        });
+    });
+    renderBackgroundPresetSelection();
 }
 
 function setup() {
@@ -415,6 +469,10 @@ function setup() {
 				identifier: "customBackgroundLink",
 				setup: (initial) => setupCustomBackgroundLink(initial),
 			},
+            {
+                identifier: "customBackgroundScale",
+                setup: (initial) => setupCustomBackgroundScale(initial),
+            },
 		],
 	};
 
@@ -456,6 +514,7 @@ function setup() {
         document.querySelector("#todo_hr24").checked = result.todo_hr24 == true;
         */
         toggleDarkModeDisable(sync.auto_dark);
+        displayBackgroundPresets();
     });
 
     const specialOptions = menu.special.map(obj => obj.identifier);
@@ -602,7 +661,7 @@ function setup() {
 								final = { ...final, ...(await getExport(storage, ["custom_styles"])) };
 								break;
 							case "export-background":
-								final = { ...final, ...(await getExport(storage, ["customBackgroundLink"])) };
+                                final = { ...final, ...(await getExport(storage, ["customBackgroundLink", "customBackgroundScale"])) };
 								break;
                         }
                     }
@@ -857,8 +916,11 @@ function setup() {
 	});
 
     document.getElementById("clearCustomBackground").addEventListener("click", () => {
-        chrome.storage.sync.set({ "customBackgroundLink": "" });
+                chrome.storage.sync.set({ "customBackgroundLink": "", "customBackgroundScale": 100 });
         document.querySelector("#customBackgroundLink").value = "";
+		document.querySelector("#customBackgroundScale").value = 100;
+		document.querySelector("#customBackgroundScaleValue").textContent = "100%";
+		renderBackgroundPresetSelection();
 		sendFromPopup("updateBackground");
     });
 
@@ -1206,6 +1268,7 @@ function saveCurrentTheme() {
 				"cardWidth": current["cardWidth"],
 				"cardHeight": current["cardHeight"],
 				"customBackgroundLink": current["customBackgroundLink"],
+				"customBackgroundScale": current["customBackgroundScale"],
             }
             const now = new Date();
             local["saved_themes"][now.getTime()] = trimmed;
